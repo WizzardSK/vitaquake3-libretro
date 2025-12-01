@@ -115,6 +115,10 @@ extern uint16_t *indices;
 
 #ifdef SWITCH
 #include <glsym/switch/nx_gl.h>
+#elif defined(RGLGEN_DECL_H__)
+/* glsym already included - skip GL headers to avoid macro conflicts */
+#elif defined(__LIBRETRO__)
+#include <glsym/rglgen_private_headers.h>
 #else
 #include <GL/gl.h>
 #endif
@@ -178,5 +182,25 @@ extern  void ( APIENTRY * qglLineWidth )(GLfloat width);
 extern  void ( APIENTRY * qglStencilMask )(GLuint mask);
 
 #endif // PSP2
+
+/* GL constants that may be missing when using glsym without raw GL headers */
+#ifndef GL_VERTEX_ARRAY
+#define GL_VERTEX_ARRAY 0x8074
+#endif
+#ifndef GL_TEXTURE_COORD_ARRAY
+#define GL_TEXTURE_COORD_ARRAY 0x8078
+#endif
+#ifndef GL_COLOR_ARRAY
+#define GL_COLOR_ARRAY 0x8076
+#endif
+
+/* vgl wrapper function declarations (implemented in libretro.c) */
+extern void vglVertexPointerMapped(const GLvoid *pointer);
+extern void vglTexCoordPointerMapped(const GLvoid *pointer);
+extern void vglColorPointerMapped(GLenum type, const GLvoid *pointer);
+extern void vglDrawObjects(GLenum mode, GLsizei count, GLboolean implicit_wvp);
+extern void vglTexCoordPointer(GLint size, GLenum type, GLsizei stride, GLuint count, const GLvoid *pointer);
+extern void vglVertexPointer(GLint size, GLenum type, GLsizei stride, GLuint count, const GLvoid *pointer);
+extern void vglColorPointer(GLint size, GLenum type, GLsizei stride, GLuint count, const GLvoid *pointer);
 
 #endif
