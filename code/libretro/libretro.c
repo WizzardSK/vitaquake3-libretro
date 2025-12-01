@@ -1900,7 +1900,7 @@ qboolean SNDDMA_Init(void)
 	dma.samples = BUFFER_SIZE;
 	dma.fullsamples = dma.samples / dma.channels;
 	dma.submission_chunk = 1;
-	dma.buffer = audio_buffer;
+	dma.buffer = (byte *)audio_buffer;
 	dma.isfloat = 0;
 	
 	snd_inited = qtrue;
