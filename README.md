@@ -12,8 +12,6 @@ for further development and baseq3 fun.
 Some of the major features currently implemented are:
 
   * SDL 2 backend
-  * OpenAL sound API support (multiple speaker support and better sound
-    quality)
   * Full x86_64 support on Linux
   * VoIP support, both in-game and external support through Mumble.
   * MinGW compilation support on Windows and cross compilation support on Linux
@@ -168,32 +166,6 @@ The defaults for these variables differ depending on the target platform.
                                       controls pitch.
   j_yaw_axis                        - Selects which joystick axis
                                       controls yaw.
-
-  s_useOpenAL                       - use the OpenAL sound backend if available
-  s_alPrecache                      - cache OpenAL sounds before use
-  s_alGain                          - the value of AL_GAIN for each source
-  s_alSources                       - the total number of sources (memory) to
-                                      allocate
-  s_alDopplerFactor                 - the value passed to alDopplerFactor
-  s_alDopplerSpeed                  - the value passed to alDopplerVelocity
-  s_alMinDistance                   - the value of AL_REFERENCE_DISTANCE for
-                                      each source
-  s_alMaxDistance                   - the maximum distance before sounds start
-                                      to become inaudible.
-  s_alRolloff                       - the value of AL_ROLLOFF_FACTOR for each
-                                      source
-  s_alGraceDistance                 - after having passed MaxDistance, length
-                                      until sounds are completely inaudible
-  s_alDriver                        - which OpenAL library to use
-  s_alDevice                        - which OpenAL device to use
-  s_alAvailableDevices              - list of available OpenAL devices
-  s_alInputDevice                   - which OpenAL input device to use
-  s_alAvailableInputDevices         - list of available OpenAL input devices
-  s_sdlBits                         - SDL bit resolution
-  s_sdlSpeed                        - SDL sample rate
-  s_sdlChannels                     - SDL number of channels
-  s_sdlDevSamps                     - SDL DMA buffer size override
-  s_sdlMixSamps                     - SDL mix buffer size override
   s_backend                         - read only, indicates the current sound
                                       backend
   s_muteWhenMinimized               - mute sound when minimized
@@ -281,8 +253,6 @@ The defaults for these variables differ depending on the target platform.
                                       developers should increase the mark
                                       triangle limits in cg_marks.c if they
                                       intend to use this.
-  r_sdlDriver                       - read only, indicates the SDL driver
-                                      backend being used
   r_noborder                        - Remove window decoration from window
                                       managers, like borders and titlebar.
   r_screenshotJpegQuality           - Controls quality of jpeg screenshots
