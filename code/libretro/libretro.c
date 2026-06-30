@@ -364,6 +364,12 @@ static bool initialize_gl()
 	if (log_cb) {
 		int i;
 		for (i = 0; i < GL_FUNCS_NUM; i++) {
+			/* Slot 1 is intentionally unused: the assignment list jumps from
+			 * funcs[0] to funcs[2]. funcs[] feeds only this diagnostic loop, so
+			 * skip it rather than emit a spurious "cannot get GL function #1"
+			 * error on every boot. */
+			if (i == 1)
+				continue;
 			if (!funcs[i].ptr) log_cb(RETRO_LOG_ERROR, "vitaQuakeIII: cannot get GL function #%d symbol.\n", i);
 		}
 	}
