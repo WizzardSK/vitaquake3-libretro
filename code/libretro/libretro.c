@@ -1796,8 +1796,14 @@ char **Sys_ListFiles(const char *directory, const char *extension, char *filter,
             continue;
 
         if (*extension) {
-			printf("Checking if %s is of %s extension\n", pak_fname, extension);
-            if (strstr(pak_fname, extension) == NULL) {
+			/* Extension match must be case-insensitive and anchored at the end
+			 * of the name: Quake data ships as PAK0.PK3 on some installs, and a
+			 * case-sensitive strstr() (matching ".pk3") rejected every uppercase
+			 * ".PK3" pak, leaving the engine with no game data -> fatal exit.
+			 * Anchoring also avoids false matches like "foo.pk3.bak". */
+			int nameLen = (int)strlen(pak_fname);
+			if (nameLen < extLen ||
+			    Q_stricmpn(pak_fname + nameLen - extLen, extension, extLen) != 0) {
                 continue; // didn't match
             }
         }
