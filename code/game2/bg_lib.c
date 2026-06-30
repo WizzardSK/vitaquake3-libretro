@@ -1851,11 +1851,6 @@ static int fmtint (char *buffer, size_t *currlen, size_t maxlen,
   if (flags & DP_F_MINUS) 
     spadlen = -spadlen; /* Left Justifty */
 
-#ifdef DEBUG_SNPRINTF
-  dprint (1, (debugfile, "zpad: %d, spad: %d, min: %d, max: %d, place: %d\n",
-      zpadlen, spadlen, min, max, place));
-#endif
-
   /* Spaces */
   while (spadlen > 0) 
   {
@@ -1969,10 +1964,6 @@ static int fmtfp (char *buffer, size_t *currlen, size_t maxlen,
     intpart++;
     fracpart -= powN (10, max);
   }
-
-#ifdef DEBUG_SNPRINTF
-  dprint (1, (debugfile, "fmtfp: %f =? %d.%d\n", fvalue, intpart, fracpart));
-#endif
 
   /* Convert integer part */
   do {
