@@ -26,7 +26,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef __QGL_H__
 #define __QGL_H__
 
-#define MAX_INDICES 4096
+/* indices[] is the array passed to qglDrawElements() by vglDrawObjects(). The
+ * renderer batches up to tess.numIndexes entries, bounded by SHADER_MAX_INDEXES
+ * (6 * SHADER_MAX_VERTEXES = 6000, see qcommon/qfiles.h). This was 4096, which
+ * caused an out-of-bounds read past the indices[] allocation (and garbage
+ * geometry) on any surface / fog / dlight batch exceeding 4096 indices. */
+#define MAX_INDICES 6000
 #define VERTEXARRAYSIZE 18360
 extern float *gVertexBuffer;
 extern uint8_t *gColorBuffer;
