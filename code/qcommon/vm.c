@@ -34,11 +34,18 @@ and one exported function: Perform
 */
 
 #include "vm_local.h"
+#include "embedded_ui_qvm.h"
 
 
 vm_t	*currentVM = NULL;
 vm_t	*lastVM    = NULL;
 int		vm_debugLevel;
+
+/* When non-NULL, VM_LoadQVM reads the VM image from this in-memory buffer
+ * instead of the filesystem. Used to load the embedded ui.qvm baked into the
+ * core when the user has not supplied a loose baseq3/vm/ui.qvm override. */
+static const unsigned char *vm_embeddedImage    = NULL;
+static int                  vm_embeddedImageLen  = 0;
 
 // used by Com_Error to get rid of running vm's before longjmp
 static int forced_unload;
@@ -375,9 +382,14 @@ vmHeader_t *VM_LoadQVM( vm_t *vm, qboolean alloc, qboolean unpure)
 
 	// load the image
 	Com_sprintf( filename, sizeof(filename), "vm/%s.qvm", vm->name );
-	Com_Printf( "Loading vm file %s...\n", filename );
 
-	FS_ReadFileDir(filename, vm->searchPath, unpure, &header.v);
+	if ( vm_embeddedImage ) {
+		Com_Printf( "Loading vm file %s (embedded)...\n", filename );
+		FS_ReadEmbeddedFile( vm_embeddedImage, vm_embeddedImageLen, &header.v );
+	} else {
+		Com_Printf( "Loading vm file %s...\n", filename );
+		FS_ReadFileDir(filename, vm->searchPath, unpure, &header.v);
+	}
 
 	if ( !header.h ) {
 		Com_Printf( "Failed.\n" );
@@ -389,7 +401,8 @@ vmHeader_t *VM_LoadQVM( vm_t *vm, qboolean alloc, qboolean unpure)
 	}
 
 	// show where the qvm was loaded from
-	FS_Which(filename, vm->searchPath);
+	if ( !vm_embeddedImage )
+		FS_Which(filename, vm->searchPath);
 
 	if( LittleLong( header.h->vmMagic ) == VM_MAGIC_VER2 ) {
 		Com_Printf( "...which has vmMagic VM_MAGIC_VER2\n" );
@@ -553,7 +566,28 @@ vm_t *VM_Restart(vm_t *vm, qboolean unpure)
 	// load the image
 	Com_Printf("VM_Restart()\n");
 
-	if(!(header = VM_LoadQVM(vm, qfalse, unpure)))
+	/* If this is the embedded ui VM (loaded with no searchPath and no loose
+	 * override on disk), reload it from the embedded image rather than letting
+	 * VM_LoadQVM fall through to a pak'd copy. */
+	if ( !Q_stricmp( vm->name, "ui" )
+			&& vm->searchPath == NULL
+			&& !FS_LooseFileExists( "vm/ui.qvm" ) )
+	{
+		vm_embeddedImage    = embedded_ui_qvm;
+		vm_embeddedImageLen = (int)embedded_ui_qvm_len;
+
+		header = VM_LoadQVM(vm, qfalse, unpure);
+
+		vm_embeddedImage    = NULL;
+		vm_embeddedImageLen = 0;
+
+		if(!header)
+		{
+			Com_Error(ERR_DROP, "VM_Restart failed");
+			return NULL;
+		}
+	}
+	else if(!(header = VM_LoadQVM(vm, qfalse, unpure)))
 	{
 		Com_Error(ERR_DROP, "VM_Restart failed");
 		return NULL;
@@ -610,6 +644,35 @@ vm_t *VM_Create( const char *module, intptr_t (*systemCalls)(intptr_t *),
 
 	Q_strncpyz(vm->name, module, sizeof(vm->name));
 
+	/* The core embeds a baseq3 ui.qvm (with the windowed/fullscreen menu item
+	 * removed). Use it for the "ui" module unless the user has supplied a loose
+	 * baseq3/vm/ui.qvm on disk, which overrides the embedded copy. Bytecode
+	 * interpreter only (the embedded image is plain vq3 bytecode); a native dll
+	 * request still goes through the normal search. */
+	if ( interpret != VMI_NATIVE
+			&& !Q_stricmp( module, "ui" )
+			&& !FS_LooseFileExists( "vm/ui.qvm" ) )
+	{
+		vm->searchPath       = NULL;
+		vm_embeddedImage     = embedded_ui_qvm;
+		vm_embeddedImageLen  = (int)embedded_ui_qvm_len;
+
+		header = VM_LoadQVM( vm, qtrue, qfalse );
+
+		vm_embeddedImage     = NULL;
+		vm_embeddedImageLen  = 0;
+
+		if ( header )
+		{
+			retval = VMI_COMPILED;
+			goto vm_loaded;
+		}
+
+		/* Embedded load failed unexpectedly; fall back to the normal search
+		 * (which may still find a pak'd ui.qvm). VM_Free cleared the name. */
+		Q_strncpyz(vm->name, module, sizeof(vm->name));
+	}
+
 	do
 	{
 		retval = FS_FindVM(&startSearch, filename, sizeof(filename), module, (interpret == VMI_NATIVE));
@@ -642,6 +705,7 @@ vm_t *VM_Create( const char *module, intptr_t (*systemCalls)(intptr_t *),
 	if(retval < 0)
 		return NULL;
 
+vm_loaded:
 	vm->systemCall = systemCalls;
 
 	// allocate space for the jump targets, which will be filled in by the compile/prep functions

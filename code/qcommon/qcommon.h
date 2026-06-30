@@ -624,6 +624,7 @@ char	**FS_ListFiles( const char *directory, const char *extension, int *numfiles
 void	FS_FreeFileList( char **list );
 
 qboolean FS_FileExists( const char *file );
+qboolean FS_LooseFileExists( const char *file );
 
 qboolean FS_CreatePath (char *OSPath);
 
@@ -667,6 +668,7 @@ void	FS_FCloseFile( fileHandle_t f );
 
 long	FS_ReadFileDir(const char *qpath, void *searchPath, qboolean unpure, void **buffer);
 long	FS_ReadFile(const char *qpath, void **buffer);
+long	FS_ReadEmbeddedFile( const void *data, long len, void **buffer );
 // returns the length of the file
 // a null buffer will just return the file length without loading
 // as a quick check for existence. -1 length == not present

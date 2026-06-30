@@ -668,6 +668,36 @@ qboolean FS_SV_FileExists( const char *file )
 	return FS_FileInPathExists(testpath);
 }
 
+/*
+================
+FS_LooseFileExists
+
+Tests whether the file exists as a loose file in any real directory search
+path (i.e. on disk, not inside a .pk3). Used to let a user-supplied
+baseq3/vm/ui.qvm override the copy embedded in the core. Pak-only matches do
+not count.
+================
+*/
+qboolean FS_LooseFileExists( const char *file )
+{
+	searchpath_t *search;
+
+	if ( !fs_searchpaths )
+		return qfalse;
+
+	for ( search = fs_searchpaths ; search ; search = search->next )
+	{
+		if ( !search->dir )
+			continue;
+
+		if ( FS_FileInPathExists( FS_BuildOSPath( search->dir->path,
+				search->dir->gamedir, file ) ) )
+			return qtrue;
+	}
+
+	return qfalse;
+}
+
 
 /*
 ===========
@@ -1962,6 +1992,47 @@ a null buffer will just return the file length without loading
 long FS_ReadFile(const char *qpath, void **buffer)
 {
 	return FS_ReadFileDir(qpath, NULL, qfalse, buffer);
+}
+
+/*
+============
+FS_ReadEmbeddedFile
+
+Loads a file image that is embedded in the executable (not on disk) into a
+temp-memory buffer, using the same load-stack bookkeeping as FS_ReadFileDir so
+the result can be released with the regular FS_FreeFile. Used for the ui.qvm
+baked into the core.
+============
+*/
+long FS_ReadEmbeddedFile( const void *data, long len, void **buffer )
+{
+	byte *buf;
+
+	if ( !fs_searchpaths ) {
+		Com_Error( ERR_FATAL, "Filesystem call made without initialization" );
+	}
+
+	if ( !data || len < 0 ) {
+		if ( buffer )
+			*buffer = NULL;
+		return -1;
+	}
+
+	if ( !buffer )
+		return len;
+
+	fs_loadCount++;
+	fs_loadStack++;
+
+	buf = Hunk_AllocateTempMemory( len + 1 );
+	*buffer = buf;
+
+	Com_Memcpy( buf, data, len );
+
+	/* guarantee a trailing 0 for string operations */
+	buf[len] = 0;
+
+	return len;
 }
 
 /*
