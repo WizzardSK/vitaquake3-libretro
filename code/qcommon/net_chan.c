@@ -142,7 +142,7 @@ void Netchan_TransmitNextFragment( netchan_t *chan ) {
 	NET_SendPacket(chan->sock, send.cursize, send.data, chan->remoteAddress);
 	
 	// Store send time and size of this packet for rate control
-	chan->lastSentTime = Sys_Milliseconds();
+	chan->lastSentTime = com_frameTime;
 	chan->lastSentSize = send.cursize;
 
 	if ( showpackets->integer ) {
@@ -217,7 +217,7 @@ void Netchan_Transmit( netchan_t *chan, int length, const byte *data ) {
 	NET_SendPacket( chan->sock, send.cursize, send.data, chan->remoteAddress );
 
 	// Store send time and size of this packet for rate control
-	chan->lastSentTime = Sys_Milliseconds();
+	chan->lastSentTime = com_frameTime;
 	chan->lastSentSize = send.cursize;
 
 	if ( showpackets->integer ) {
@@ -500,7 +500,7 @@ static void NET_QueuePacket( int length, const void *data, netadr_t to,
 	Com_Memcpy(new->data, data, length);
 	new->length = length;
 	new->to = to;
-	new->release = Sys_Milliseconds() + (int)((float)offset / com_timescale->value);	
+	new->release = com_frameTime + (int)((float)offset / com_timescale->value);	
 	new->next = NULL;
 
 	if(!packetQueue) {
@@ -522,7 +522,7 @@ void NET_FlushPacketQueue(void)
 	int now;
 
 	while(packetQueue) {
-		now = Sys_Milliseconds();
+		now = com_frameTime;
 		if(packetQueue->release >= now)
 			break;
 		Sys_SendPacket(packetQueue->length, packetQueue->data,

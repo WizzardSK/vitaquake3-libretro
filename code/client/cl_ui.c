@@ -727,7 +727,7 @@ intptr_t CL_UISystemCalls( intptr_t *args ) {
 		return 0;
 
 	case UI_MILLISECONDS:
-		return Sys_Milliseconds();
+		return com_frameTime;
 
 	case UI_CVAR_REGISTER:
 		Cvar_Register( VMA(1), VMA(2), VMA(3), args[4] ); 

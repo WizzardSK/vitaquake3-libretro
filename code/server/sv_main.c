@@ -398,7 +398,7 @@ static leakyBucket_t *SVC_BucketForAddress( netadr_t address, int burst, int per
 	leakyBucket_t	*bucket = NULL;
 	int						i;
 	long					hash = SVC_HashForAddress( address );
-	int						now = Sys_Milliseconds();
+	int						now = com_frameTime;
 
 	for ( bucket = bucketHashes[ hash ]; bucket; bucket = bucket->next ) {
 		switch ( bucket->type ) {
@@ -477,7 +477,7 @@ SVC_RateLimit
 */
 qboolean SVC_RateLimit( leakyBucket_t *bucket, int burst, int period ) {
 	if ( bucket != NULL ) {
-		int now = Sys_Milliseconds();
+		int now = com_frameTime;
 		int interval = now - bucket->lastTime;
 		int expired = interval / period;
 		int expiredRemainder = interval % period;
@@ -1119,7 +1119,7 @@ void SV_Frame( int msec ) {
 	}
 
 	if ( com_speeds->integer ) {
-		startTime = Sys_Milliseconds ();
+		startTime = com_frameTime;
 	} else {
 		startTime = 0;	// quite a compiler warning
 	}
@@ -1140,7 +1140,7 @@ void SV_Frame( int msec ) {
 	}
 
 	if ( com_speeds->integer ) {
-		time_game = Sys_Milliseconds () - startTime;
+		time_game = com_frameTime - startTime;
 	}
 
 	// check timeouts
@@ -1195,7 +1195,7 @@ int SV_RateMsec(client_t *client)
 		messageSize += UDPIP_HEADER_SIZE;
 		
 	rateMsec = messageSize * 1000 / ((int) (rate * com_timescale->value));
-	rate = Sys_Milliseconds() - client->netchan.lastSentTime;
+	rate = com_frameTime - client->netchan.lastSentTime;
 	
 	if(rate > rateMsec)
 		return 0;
@@ -1227,9 +1227,12 @@ int SV_SendQueuedPackets()
 
 	if(sv_dlRate->integer)
 	{
-		// Rate limiting. This is very imprecise for high
-		// download rates due to millisecond timedelta resolution
-		dlStart = Sys_Milliseconds();
+		/* Rate limiting, frame-paced. dlStart is the frame clock and dlNextRound
+		 * is a future frame time, so deltaT gates whether this frame is due for
+		 * the next download round. There is no intra-frame elapsed time under the
+		 * libretro frame clock, so a round's send duration is 0 and the rate is
+		 * enforced purely by scheduling dlNextRound delayT ms ahead. */
+		dlStart = com_frameTime;
 		deltaT = dlNextRound - dlStart;
 
 		if(deltaT > 0)
@@ -1244,7 +1247,7 @@ int SV_SendQueuedPackets()
 			if(numBlocks)
 			{
 				// There are active downloads
-				deltaT = Sys_Milliseconds() - dlStart;
+				deltaT = 0;
 
 				delayT = 1000 * numBlocks * MAX_DOWNLOAD_BLKSIZE;
 				delayT /= sv_dlRate->integer * 1024;

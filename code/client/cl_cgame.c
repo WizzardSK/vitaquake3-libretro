@@ -416,7 +416,7 @@ intptr_t CL_CgameSystemCalls( intptr_t *args ) {
 		Com_Error( ERR_DROP, "%s", (const char*)VMA(1) );
 		return 0;
 	case CG_MILLISECONDS:
-		return Sys_Milliseconds();
+		return com_frameTime;
 	case CG_CVAR_REGISTER:
 		Cvar_Register( VMA(1), VMA(2), VMA(3), args[4] ); 
 		return 0;
@@ -714,7 +714,7 @@ void CL_InitCGame( void ) {
 	int					t1, t2;
 	vmInterpret_t		interpret;
 
-	t1 = Sys_Milliseconds();
+	t1 = com_frameTime;
 
 	// put away the console
 	Con_Close();
@@ -752,7 +752,7 @@ void CL_InitCGame( void ) {
 	// will cause the server to send us the first snapshot
 	clc.state = CA_PRIMED;
 
-	t2 = Sys_Milliseconds();
+	t2 = com_frameTime;
 
 	Com_Printf( "CL_InitCGame: %5.2f seconds\n", (t2-t1)/1000.0 );
 
@@ -1034,7 +1034,7 @@ void CL_SetCGameTime( void ) {
 	// while a normal demo may have different time samples
 	// each time it is played back
 	if ( cl_timedemo->integer ) {
-		int now = Sys_Milliseconds( );
+		int now = com_frameTime;
 		int frameDuration;
 
 		if (!clc.timeDemoStart) {

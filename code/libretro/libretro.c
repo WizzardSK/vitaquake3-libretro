@@ -34,8 +34,9 @@ static bool widescreen_enabled      = false;
  * There is no host wall clock, no timer, and no sleep anywhere in the frame
  * path. retro_run executes one video frame and its audio samples; a given
  * input sequence therefore produces identical output, which is what run-ahead,
- * netplay and deterministic record/replay require. Every engine consumer of
- * time funnels through Sys_Milliseconds(), which reports this virtual clock. */
+ * netplay and deterministic record/replay require. The frame clock is published
+ * to com_frameTime, the single engine clock that every consumer of time reads;
+ * there is no Sys_Milliseconds and no host wall clock anywhere. */
 static uint64_t frame_time_us        = 0;     /* accumulated virtual time, microseconds */
 static unsigned frame_ms_remainder   = 0;     /* carry of the 1000 % framerate remainder */
 
@@ -389,7 +390,7 @@ void Key_Event(int key, int value, int time);
 /* Helper function for keyboard callback - calls Key_Event with current time */
 static void Sys_QueueKeyEvent(uint32_t keycode, int down)
 {
-	Key_Event(keycode, down, Sys_Milliseconds());
+	Key_Event(keycode, down, com_frameTime);
 }
 
 static void keyboard_cb(bool down, unsigned keycode, uint32_t character, uint16_t mod)
@@ -1354,10 +1355,12 @@ void retro_run(void)
 	qglEnable(GL_TEXTURE_2D);
 	qglEnableClientState(GL_VERTEX_ARRAY);
 
-	/* Advance the virtual clock by exactly one frame quantum. Using integer
-	 * ms/frame with a remainder carry keeps the long-run rate at precisely
-	 * 'framerate' fps with no floating-point drift. Done before any engine code
-	 * (Com_Frame, input, audio) reads Sys_Milliseconds() this frame. */
+	/* Advance the frame clock by exactly one frame quantum and publish it to
+	 * com_frameTime, the single engine clock. Integer ms/frame with a remainder
+	 * carry keeps the long-run rate at precisely 'framerate' fps with no
+	 * floating-point drift. com_frameTime is set here, before any engine code
+	 * (Com_Frame, input, audio, server) reads the time this frame; nothing in
+	 * the engine reads a host wall clock. */
 	if (framerate > 0) {
 		frame_time_us += 1000000u / (unsigned)framerate;
 		frame_ms_remainder += 1000000u % (unsigned)framerate;
@@ -1366,6 +1369,7 @@ void retro_run(void)
 			frame_time_us += 1;
 		}
 	}
+	com_frameTime = (int)(frame_time_us / 1000);
 
 	if (first_boot) {
 		char commandLine[MAX_STRING_CHARS] = {0};
@@ -1376,9 +1380,6 @@ void retro_run(void)
 		
 		Sys_PlatformInit();
 
-		// Set the initial time base
-		Sys_Milliseconds();
-	
 		CON_Init();
 		if (is_missionpack) {
 			snprintf(commandLine, sizeof(commandLine), "+set fs_game missionpack");
@@ -1493,21 +1494,6 @@ Sys_GogPath
 char *Sys_GogPath(void) {
     // GOG also doesn't let you install Quake 3 on Mac/Linux
     return gogPath;
-}
-
-/*
-================
-Sys_Milliseconds
-================
-*/
-int curtime;
-int Sys_Milliseconds(void) {
-	/* The engine clock is the virtual frame clock, advanced once per retro_run.
-	 * Every consumer of engine time (Com_Frame msec, input event timestamps,
-	 * audio mix-ahead, server frame timing) funnels through here, so there is a
-	 * single, wall-clock-free source and the whole simulation is reproducible. */
-	curtime = (int)(frame_time_us / 1000);
-	return curtime;
 }
 
 /*
@@ -2373,7 +2359,7 @@ int old_x = - 1, old_y;
 
 void IN_Frame( void )
 {
-	int time = Sys_Milliseconds();
+	int time = com_frameTime;
 	Sys_SetKeys(time);
 	int lsx, lsy, rsx, rsy;
 	

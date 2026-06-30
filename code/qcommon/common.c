@@ -282,7 +282,7 @@ void QDECL Com_Error( int code, const char *fmt, ... ) {
 	}
 
 	// if we are getting a solid stream of ERR_DROP, do an ERR_FATAL
-	currentTime = Sys_Milliseconds();
+	currentTime = com_frameTime;
 	if ( currentTime - lastErrorTime < 100 ) {
 		if ( ++errorCount > 3 ) {
 			code = ERR_FATAL;
@@ -1379,7 +1379,7 @@ void Com_TouchMemory( void ) {
 
 	Z_CheckHeap();
 
-	start = Sys_Milliseconds();
+	start = com_frameTime;
 
 	sum = 0;
 
@@ -1406,7 +1406,7 @@ void Com_TouchMemory( void ) {
 		}
 	}
 
-	end = Sys_Milliseconds();
+	end = com_frameTime;
 
 	Com_Printf( "Com_TouchMemory: %i msec\n", end - start );
 }
@@ -1989,7 +1989,7 @@ void Com_QueueEvent( int time, sysEventType_t type, int value, int value2, int p
 
 	if ( time == 0 )
 	{
-		time = Sys_Milliseconds();
+		time = com_frameTime;
 	}
 
 	ev->evTime = time;
@@ -2040,7 +2040,7 @@ sysEvent_t Com_GetSystemEvent( void )
 
 	// create an empty event to return
 	memset( &ev, 0, sizeof( ev ) );
-	ev.evTime = Sys_Milliseconds();
+	ev.evTime = com_frameTime;
 
 	return ev;
 }
@@ -2160,13 +2160,13 @@ void Com_RunAndTimeServerPacket( netadr_t *evFrom, msg_t *buf ) {
 	t1 = 0;
 
 	if ( com_speeds->integer ) {
-		t1 = Sys_Milliseconds ();
+		t1 = com_frameTime;
 	}
 
 	SV_PacketEvent( *evFrom, buf );
 
 	if ( com_speeds->integer ) {
-		t2 = Sys_Milliseconds ();
+		t2 = com_frameTime;
 		msec = t2 - t1;
 		if ( com_speeds->integer == 3 ) {
 			Com_Printf( "SV_PacketEvent time: %i\n", msec );
@@ -3084,7 +3084,7 @@ void Com_Frame( void ) {
 	// main event loop
 	//
 	if ( com_speeds->integer ) {
-		timeBeforeFirstEvents = Sys_Milliseconds ();
+		timeBeforeFirstEvents = com_frameTime;
 	}
 
 	/* libretro: retro_run drives exactly one simulation step per call and the
@@ -3098,10 +3098,13 @@ void Com_Frame( void ) {
 
 	IN_Frame();
 
-	lastTime = com_frameTime;
-	com_frameTime = Com_EventLoop();
-	
+	/* com_frameTime is set once per frame by the libretro layer (retro_run)
+	 * from the frame clock, so the per-frame step is just the delta from the
+	 * previous frame. Com_EventLoop() runs only to drain input/network events. */
 	msec = com_frameTime - lastTime;
+	lastTime = com_frameTime;
+
+	Com_EventLoop();
 
 	Cbuf_Execute ();
 
@@ -3118,7 +3121,7 @@ void Com_Frame( void ) {
 	// server side
 	//
 	if ( com_speeds->integer ) {
-		timeBeforeServer = Sys_Milliseconds ();
+		timeBeforeServer = com_frameTime;
 	}
 
 	SV_Frame( msec );
@@ -3146,7 +3149,7 @@ void Com_Frame( void ) {
 	// without a frame of latency
 	//
 	if ( com_speeds->integer ) {
-		timeBeforeEvents = Sys_Milliseconds ();
+		timeBeforeEvents = com_frameTime;
 	}
 	Com_EventLoop();
 	Cbuf_Execute ();
@@ -3156,17 +3159,17 @@ void Com_Frame( void ) {
 	// client side
 	//
 	if ( com_speeds->integer ) {
-		timeBeforeClient = Sys_Milliseconds ();
+		timeBeforeClient = com_frameTime;
 	}
 
 	CL_Frame( msec );
 
 	if ( com_speeds->integer ) {
-		timeAfter = Sys_Milliseconds ();
+		timeAfter = com_frameTime;
 	}
 #else
 	if ( com_speeds->integer ) {
-		timeAfter = Sys_Milliseconds ();
+		timeAfter = com_frameTime;
 		timeBeforeEvents = timeAfter;
 		timeBeforeClient = timeAfter;
 	}

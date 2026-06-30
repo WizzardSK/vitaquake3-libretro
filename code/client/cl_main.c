@@ -875,7 +875,7 @@ void CL_DemoCompleted( void )
 	{
 		int	time;
 		
-		time = Sys_Milliseconds() - clc.timeDemoStart;
+		time = com_frameTime - clc.timeDemoStart;
 		if( time > 0 )
 		{
 			// Millisecond times are frame durations:
@@ -3185,7 +3185,7 @@ void *CL_RefMalloc( int size ) {
 }
 
 int CL_ScaledMilliseconds(void) {
-	return Sys_Milliseconds()*com_timescale->value;
+	return com_frameTime*com_timescale->value;
 }
 
 /*
@@ -3867,7 +3867,7 @@ void CL_ServerInfoPacket( netadr_t from, msg_t *msg ) {
 		if ( cl_pinglist[i].adr.port && !cl_pinglist[i].time && NET_CompareAdr( from, cl_pinglist[i].adr ) )
 		{
 			// calc ping time
-			cl_pinglist[i].time = Sys_Milliseconds() - cl_pinglist[i].start;
+			cl_pinglist[i].time = com_frameTime - cl_pinglist[i].start;
 			Com_DPrintf( "ping time %dms from %s\n", cl_pinglist[i].time, NET_AdrToString( from ) );
 
 			// save of info
@@ -4288,7 +4288,7 @@ void CL_GetPing( int n, char *buf, int buflen, int *pingtime )
 	if (!time)
 	{
 		// check for timeout
-		time = Sys_Milliseconds() - cl_pinglist[n].start;
+		time = com_frameTime - cl_pinglist[n].start;
 		maxPing = Cvar_VariableIntegerValue( "cl_maxPing" );
 		if( maxPing < 100 ) {
 			maxPing = 100;
@@ -4380,7 +4380,7 @@ ping_t* CL_GetFreePing( void )
 		{
 			if (!pingptr->time)
 			{
-				if (Sys_Milliseconds() - pingptr->start < 500)
+				if (com_frameTime - pingptr->start < 500)
 				{
 					// still waiting for response
 					continue;
@@ -4405,7 +4405,7 @@ ping_t* CL_GetFreePing( void )
 	for (i=0; i<MAX_PINGREQUESTS; i++, pingptr++ )
 	{
 		// scan for oldest
-		time = Sys_Milliseconds() - pingptr->start;
+		time = com_frameTime - pingptr->start;
 		if (time > oldest)
 		{
 			oldest = time;
@@ -4458,7 +4458,7 @@ void CL_Ping_f( void ) {
 	pingptr = CL_GetFreePing();
 
 	memcpy( &pingptr->adr, &to, sizeof (netadr_t) );
-	pingptr->start = Sys_Milliseconds();
+	pingptr->start = com_frameTime;
 	pingptr->time  = 0;
 
 	CL_SetServerInfoByAddress(pingptr->adr, NULL, 0);
@@ -4529,7 +4529,7 @@ qboolean CL_UpdateVisiblePings_f(int source) {
 							}
 						}
 						memcpy(&cl_pinglist[j].adr, &server[i].adr, sizeof(netadr_t));
-						cl_pinglist[j].start = Sys_Milliseconds();
+						cl_pinglist[j].start = com_frameTime;
 						cl_pinglist[j].time = 0;
 						NET_OutOfBandPrint( NS_CLIENT, cl_pinglist[j].adr, "getinfo xxx" );
 						slots++;
