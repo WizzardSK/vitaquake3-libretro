@@ -1,8 +1,10 @@
 # embedded_ui_qvm.h
 
-`embedded_ui_qvm.h` contains a baseq3 `ui.qvm` baked into the core. It is the
-stock-format (vq3) Quake III `q3_ui` bytecode with two changes for the libretro
-core:
+`embedded_ui_qvm.h` contains a baseq3 `ui.qvm` baked into the core, stored
+**zlib-compressed** to keep the binary small (~92 KB compressed vs ~302 KB
+raw). `vm.c` inflates it once at load via the engine's zlib (`VM_ArmEmbeddedUI`).
+It is the stock-format (vq3) Quake III `q3_ui` bytecode with two changes for the
+libretro core:
 
 - the **"Fullscreen:"** item removed from the *System > Graphics* menu (the core
   always renders fullscreen into the frontend's framebuffer); and

@@ -34,6 +34,7 @@ and one exported function: Perform
 */
 
 #include "vm_local.h"
+#include "../zlib/zlib.h"
 #include "embedded_ui_qvm.h"
 
 
@@ -43,9 +44,61 @@ int		vm_debugLevel;
 
 /* When non-NULL, VM_LoadQVM reads the VM image from this in-memory buffer
  * instead of the filesystem. Used to load the embedded ui.qvm baked into the
- * core when the user has not supplied a loose baseq3/vm/ui.qvm override. */
+ * core when the user has not supplied a loose baseq3/vm/ui.qvm override. The
+ * embedded image is stored zlib-compressed; VM_ArmEmbeddedUI inflates it here. */
 static const unsigned char *vm_embeddedImage    = NULL;
 static int                  vm_embeddedImageLen  = 0;
+
+/*
+==============
+VM_ArmEmbeddedUI / VM_DisarmEmbeddedUI
+
+Inflate the compressed embedded ui.qvm into a temporary buffer and point the
+loader at it. Returns qtrue on success. The buffer is released by
+VM_DisarmEmbeddedUI after the VM has been loaded.
+==============
+*/
+static qboolean VM_ArmEmbeddedUI( void )
+{
+	z_stream strm;
+	Bytef    *buf = (Bytef *)Z_Malloc( embedded_ui_qvm_len );
+	int       zret;
+
+	Com_Memset( &strm, 0, sizeof( strm ) );
+	strm.next_in   = (Bytef *)embedded_ui_qvm_z;
+	strm.avail_in  = embedded_ui_qvm_z_len;
+	strm.next_out  = buf;
+	strm.avail_out = embedded_ui_qvm_len;
+
+	if ( inflateInit( &strm ) != Z_OK )
+	{
+		Com_Printf( S_COLOR_YELLOW "Warning: inflateInit failed for embedded ui.qvm\n" );
+		Z_Free( buf );
+		return qfalse;
+	}
+
+	zret = inflate( &strm, Z_FINISH );
+	inflateEnd( &strm );
+
+	if ( zret != Z_STREAM_END || strm.total_out != embedded_ui_qvm_len )
+	{
+		Com_Printf( S_COLOR_YELLOW "Warning: failed to inflate embedded ui.qvm\n" );
+		Z_Free( buf );
+		return qfalse;
+	}
+
+	vm_embeddedImage    = (const unsigned char *)buf;
+	vm_embeddedImageLen = (int)embedded_ui_qvm_len;
+	return qtrue;
+}
+
+static void VM_DisarmEmbeddedUI( void )
+{
+	if ( vm_embeddedImage )
+		Z_Free( (void *)vm_embeddedImage );
+	vm_embeddedImage    = NULL;
+	vm_embeddedImageLen = 0;
+}
 
 // used by Com_Error to get rid of running vm's before longjmp
 static int forced_unload;
@@ -571,15 +624,12 @@ vm_t *VM_Restart(vm_t *vm, qboolean unpure)
 	 * VM_LoadQVM fall through to a pak'd copy. */
 	if ( !Q_stricmp( vm->name, "ui" )
 			&& vm->searchPath == NULL
-			&& !FS_LooseFileExists( "vm/ui.qvm" ) )
+			&& !FS_LooseFileExists( "vm/ui.qvm" )
+			&& VM_ArmEmbeddedUI() )
 	{
-		vm_embeddedImage    = embedded_ui_qvm;
-		vm_embeddedImageLen = (int)embedded_ui_qvm_len;
-
 		header = VM_LoadQVM(vm, qfalse, unpure);
 
-		vm_embeddedImage    = NULL;
-		vm_embeddedImageLen = 0;
+		VM_DisarmEmbeddedUI();
 
 		if(!header)
 		{
@@ -651,16 +701,14 @@ vm_t *VM_Create( const char *module, intptr_t (*systemCalls)(intptr_t *),
 	 * request still goes through the normal search. */
 	if ( interpret != VMI_NATIVE
 			&& !Q_stricmp( module, "ui" )
-			&& !FS_LooseFileExists( "vm/ui.qvm" ) )
+			&& !FS_LooseFileExists( "vm/ui.qvm" )
+			&& VM_ArmEmbeddedUI() )
 	{
-		vm->searchPath       = NULL;
-		vm_embeddedImage     = embedded_ui_qvm;
-		vm_embeddedImageLen  = (int)embedded_ui_qvm_len;
+		vm->searchPath = NULL;
 
 		header = VM_LoadQVM( vm, qtrue, qfalse );
 
-		vm_embeddedImage     = NULL;
-		vm_embeddedImageLen  = 0;
+		VM_DisarmEmbeddedUI();
 
 		if ( header )
 		{
