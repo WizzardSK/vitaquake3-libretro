@@ -480,8 +480,6 @@ void S_SpatializeOrigin (vec3_t origin, int master_vol, int *left_vol, int *righ
 /*
 =================
 S_Base_HearingThroughEntity
-
-Also see S_AL_HearingThroughEntity
 =================
 */
 static qboolean S_Base_HearingThroughEntity( int entityNum, vec3_t origin )
