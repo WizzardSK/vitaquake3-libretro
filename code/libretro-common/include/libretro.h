@@ -1074,6 +1074,33 @@ enum retro_mod
                                             *   never need an accurate audio state in the future.
                                             * * State will never be saved when using Hard Disable Audio.
                                             */
+
+/* Audio/video enable flags returned by RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE.
+ * Backported from upstream libretro.h. */
+#ifndef RETRO_AV_ENABLE_VIDEO
+enum retro_av_enable_flags
+{
+   RETRO_AV_ENABLE_VIDEO              = (1 << 0),
+   RETRO_AV_ENABLE_AUDIO             = (1 << 1),
+   RETRO_AV_ENABLE_FAST_SAVESTATES   = (1 << 2),
+   RETRO_AV_ENABLE_HARD_DISABLE_AUDIO = (1 << 3),
+   RETRO_AV_ENABLE_DUMMY             = INT_MAX
+};
+#endif
+
+/* Float audio output. Backported from upstream libretro.h. The frontend hands
+ * the core a float batch callback; the core calls it instead of the int16 batch
+ * callback once float output has been negotiated. */
+#ifndef RETRO_ENVIRONMENT_GET_AUDIO_SAMPLE_BATCH_FLOAT
+#define RETRO_ENVIRONMENT_GET_AUDIO_SAMPLE_BATCH_FLOAT (85 | RETRO_ENVIRONMENT_EXPERIMENTAL)
+typedef size_t (RETRO_CALLCONV *retro_audio_sample_batch_float_t)(
+      const float *data, size_t frames);
+struct retro_audio_sample_float_callback
+{
+   retro_audio_sample_batch_float_t batch;
+};
+#endif
+
 #define RETRO_ENVIRONMENT_GET_MIDI_INTERFACE (48 | RETRO_ENVIRONMENT_EXPERIMENTAL)
                                            /* struct retro_midi_interface ** --
                                             * Returns a MIDI interface that can be used for raw data I/O.

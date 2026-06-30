@@ -1237,10 +1237,6 @@ void S_Base_Update( void ) {
 
 void S_GetSoundtime(void)
 {
-	int		samplepos;
-	static	int		buffers;
-	static	int		oldsamplepos;
-
 	if( CL_VideoRecording( ) )
 	{
 		float fps = MIN(cl_aviFrameRate->value, 1000.0f);
@@ -1253,98 +1249,50 @@ void S_GetSoundtime(void)
 		return;
 	}
 
-	// it is possible to miscount buffers if it has wrapped twice between
-	// calls to S_Update.  Oh well.
-	samplepos = SNDDMA_GetDMAPos();
-	if (samplepos < oldsamplepos)
-	{
-		buffers++;					// buffer wrapped
-		
-		if (s_paintedtime > 0x40000000)
-		{	// time to chop things off to avoid 32 bit limits
-			buffers = 0;
-			s_paintedtime = dma.fullsamples;
-			S_Base_StopAllSounds ();
-		}
-	}
-	oldsamplepos = samplepos;
-
-	s_soundtime = buffers*dma.fullsamples + samplepos/dma.channels;
-
-#if 0
-// check to make sure that we haven't overshot
-	if (s_paintedtime < s_soundtime)
-	{
-		Com_DPrintf ("S_Update_ : overflow\n");
-		s_paintedtime = s_soundtime;
-	}
-#endif
-
-	if ( dma.submission_chunk < 256 ) {
-		s_paintedtime = s_soundtime + s_mixPreStep->value * dma.speed;
-	} else {
-		s_paintedtime = s_soundtime + dma.submission_chunk;
-	}
+	/* libretro frame-locked: playback position equals the monotonic paint
+	 * position. There is no separate DMA read cursor and no mix-ahead window,
+	 * so soundtime tracks paintedtime directly. Raw streams (BGM, cinematics)
+	 * sync their write head against s_soundtime, so it must advance with the
+	 * frame. */
+	s_soundtime = s_paintedtime;
 }
 
 
 void S_Update_(void) {
 	unsigned        endtime;
-	static			float	lastTime = 0.0f;
-	float			ma, op;
-	float			thisTime, sane;
-	static			int ot = -1;
+	int             frame_samps;
+	extern int      s_paintedFrameBase;
 
 	if ( !s_soundStarted || s_soundMuted ) {
 		return;
 	}
 
-	thisTime = Com_Milliseconds();
-
-	// Updates s_soundtime
+	// sync soundtime to the monotonic paint position for raw-stream bookkeeping
 	S_GetSoundtime();
-
-	if (s_soundtime == ot) {
-		return;
-	}
-	ot = s_soundtime;
 
 	// clear any sound effects that end before the current time,
 	// and start any new sounds
 	S_ScanChannelStarts();
 
-	sane = thisTime - lastTime;
-	if (sane<11) {
-		sane = 11;			// 85hz
+	/* libretro: paint exactly one video frame's worth of audio. The output
+	 * buffer is linear and one frame long; s_paintedtime is a monotonic
+	 * sample-pair counter used only for channel/loop/raw scheduling, while the
+	 * frame's destination offset is taken relative to s_paintedFrameBase. There
+	 * is no DMA read cursor, no mix-ahead window and no wall clock, so identical
+	 * input yields identical audio output (run-ahead / netplay / replay safe). */
+	frame_samps = dma.samples_per_frame;
+	if ( frame_samps <= 0 ) {
+		frame_samps = dma.speed / 10;	// harmless warmup before SNDDMA_Init
 	}
 
-	ma = s_mixahead->value * dma.speed;
-	op = s_mixPreStep->value + sane*dma.speed*0.01;
-
-	if (op < ma) {
-		ma = op;
-	}
-
-	// mix ahead of current position
-	endtime = s_soundtime + ma;
-
-	// mix to an even submission block size
-	endtime = (endtime + dma.submission_chunk-1)
-		& ~(dma.submission_chunk-1);
-
-	// never mix more than the complete buffer
-	if (endtime - s_soundtime > dma.fullsamples)
-		endtime = s_soundtime + dma.fullsamples;
-
-
+	s_paintedFrameBase = s_paintedtime;
+	endtime            = s_paintedtime + frame_samps;
 
 	SNDDMA_BeginPainting ();
 
 	S_PaintChannels (endtime);
 
 	SNDDMA_Submit ();
-
-	lastTime = thisTime;
 }
 
 

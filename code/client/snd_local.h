@@ -71,7 +71,14 @@ typedef struct {
 	int			isfloat;
 	int			speed;
 	byte		*buffer;
+	int			samples_per_frame;		// stereo sample-pairs mixed per video frame (libretro frame-locked)
 } dma_t;
+
+// Float output: when s_float_output is set the paintbuffer is transferred as
+// normalized float [-1,1] into snd_float_buffer (a libretro-layer buffer)
+// instead of the int16 dma.buffer. Both are linear one-frame buffers.
+extern int    s_float_output;
+extern float *snd_float_buffer;
 
 #define START_SAMPLE_IMMEDIATE	0x7fffffff
 

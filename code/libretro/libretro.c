@@ -20,12 +20,17 @@
 #include <glsm/glsm.h>
 
 #define SAMPLE_RATE   	48000
-#define BUFFER_SIZE 	32768
+/* One-frame linear output buffer, in stereo sample-pairs. Sized for the
+ * worst-case low framerate (SAMPLE_RATE/framerate pairs) plus headroom; at
+ * 60fps the engine writes 800 pairs here per frame and audio_callback hands
+ * them straight to the frontend. No ring, no wrap. */
+#define AUDIO_BUFFER_SIZE	8192
 
 int framerate = 165;
 static int invert_y_axis = 1;
-static unsigned audio_buffer_ptr;
-static int16_t audio_buffer[BUFFER_SIZE];
+static int16_t audio_buffer[AUDIO_BUFFER_SIZE * 2];   /* interleaved L,R int16 */
+static float   audio_buffer_f[AUDIO_BUFFER_SIZE * 2]; /* interleaved L,R float */
+static unsigned audio_batch_frames_max = AUDIO_BUFFER_SIZE; /* backpressure cap, stereo frames */
 static bool libretro_shared_context = false;
 static bool widescreen_enabled      = false;
 
@@ -170,6 +175,15 @@ static retro_log_printf_t log_cb;
 static retro_video_refresh_t video_cb;
 static retro_audio_sample_t audio_cb;
 static retro_audio_sample_batch_t audio_batch_cb;
+/* Float batch output, negotiated per-game via
+ * RETRO_ENVIRONMENT_GET_AUDIO_SAMPLE_BATCH_FLOAT. use_float_output stays 0 (and
+ * audio_batch_cb_float NULL) on any frontend that doesn't support it, leaving
+ * the int16 path unchanged. */
+static retro_audio_sample_batch_float_t audio_batch_cb_float = NULL;
+static int use_float_output = 0;
+/* Engine-side float-output state (defined in snd_mix.c). */
+extern int    s_float_output;
+extern float *snd_float_buffer;
 retro_environment_t environ_cb;
 static retro_input_poll_t poll_cb;
 static retro_input_state_t input_cb;
@@ -1193,21 +1207,73 @@ static void audio_process(void)
 
 static void audio_callback(void)
 {
-	unsigned read_first, read_second;
-	float samples_per_frame = (2 * SAMPLE_RATE) / framerate;
-	unsigned read_end = audio_buffer_ptr + samples_per_frame;
+	/* Frame-locked: the engine mixed exactly one video frame's worth of audio
+	 * (frame_samps stereo pairs) into the linear output buffer during
+	 * Com_Frame -> S_Update -> S_Update_. Hand that buffer straight to the
+	 * frontend. No DMA read cursor, no ring, no wrap. */
+	unsigned frame_samps            = SAMPLE_RATE / framerate; /* stereo pairs */
+	unsigned audio_frames_remaining = frame_samps;
+	uint64_t av_flags               = RETRO_AV_ENABLE_VIDEO | RETRO_AV_ENABLE_AUDIO;
+	int      push_audio;
 
-	if (read_end > BUFFER_SIZE)
-		read_end = BUFFER_SIZE;
+	if (!snd_inited)
+		return;
 
-	read_first  = read_end - audio_buffer_ptr;
-	read_second = samples_per_frame - read_first;
+	/* Let the frontend tell us when audio output isn't needed.
+	 * HARD_DISABLE_AUDIO (e.g. a run-ahead secondary instance whose audio is
+	 * never consumed): the mixer is output-only and never feeds back into game
+	 * state, so skip the whole step. AUDIO cleared without HARD_DISABLE (e.g.
+	 * fast-forward): still mix so engine state advances correctly, just don't
+	 * push the buffer. Older frontends that don't implement env 47 fall through
+	 * with both flags set. */
+	environ_cb(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &av_flags);
+	if (av_flags & RETRO_AV_ENABLE_HARD_DISABLE_AUDIO)
+		return;
+	push_audio = (av_flags & RETRO_AV_ENABLE_AUDIO) != 0;
 
-	audio_batch_cb(audio_buffer + audio_buffer_ptr, read_first / (dma.samplebits / 8));
-	audio_buffer_ptr += read_first;
-	if (read_second >= 1) {
-		audio_batch_cb(audio_buffer, read_second / (dma.samplebits / 8));
-		audio_buffer_ptr = read_second;
+	if (!push_audio)
+		return;
+
+	if (use_float_output)
+	{
+		float *p_f = audio_buffer_f;
+		do
+		{
+			unsigned to_write =
+				(audio_frames_remaining > audio_batch_frames_max) ?
+				audio_batch_frames_max : audio_frames_remaining;
+			unsigned written = audio_batch_cb_float(p_f, to_write);
+
+			if (written == 0)
+				break;	/* frontend can't accept any more this frame */
+			if (written < to_write)
+				audio_batch_frames_max = written;
+
+			audio_frames_remaining -= written;
+			p_f                    += written << 1;
+		}
+		while (audio_frames_remaining > 0);
+		return;
+	}
+
+	{
+		int16_t *p = audio_buffer;
+		do
+		{
+			unsigned to_write =
+				(audio_frames_remaining > audio_batch_frames_max) ?
+				audio_batch_frames_max : audio_frames_remaining;
+			unsigned written = audio_batch_cb(p, to_write);
+
+			if (written == 0)
+				break;
+			if (written < to_write)
+				audio_batch_frames_max = written;
+
+			audio_frames_remaining -= written;
+			p                      += written << 1;
+		}
+		while (audio_frames_remaining > 0);
 	}
 }
 
@@ -1226,6 +1292,26 @@ bool retro_load_game(const struct retro_game_info *info)
 			log_cb(RETRO_LOG_INFO, "XRGB8888 is not supported.\n");
 		return false;
 	}
+
+	/* Negotiate float audio output once for this game's lifetime. If the
+	 * frontend supports it we commit to float; otherwise the int16 path is used
+	 * unchanged. (Contract: do this once per load, never mix formats mid-game.)
+	 * SNDDMA_Init runs later in this function via the engine init and picks up
+	 * use_float_output. */
+	use_float_output     = 0;
+	audio_batch_cb_float = NULL;
+	audio_batch_frames_max = AUDIO_BUFFER_SIZE;
+	{
+		struct retro_audio_sample_float_callback fcb;
+		fcb.batch = NULL;
+		if (environ_cb(RETRO_ENVIRONMENT_GET_AUDIO_SAMPLE_BATCH_FLOAT, &fcb)
+			&& fcb.batch)
+		{
+			audio_batch_cb_float = fcb.batch;
+			use_float_output     = 1;
+		}
+	}
+	s_float_output = use_float_output;
 
 	if (!initialize_opengl())
 	{
@@ -1974,27 +2060,41 @@ qboolean SNDDMA_Init(void)
 	dma.samplebits = 16;
 	dma.speed = SAMPLE_RATE;
 	dma.channels = 2;
-	dma.samples = BUFFER_SIZE;
+	dma.samples = AUDIO_BUFFER_SIZE * 2;        /* mono samples in the buffer */
 	dma.fullsamples = dma.samples / dma.channels;
 	dma.submission_chunk = 1;
 	dma.buffer = (byte *)audio_buffer;
 	dma.isfloat = 0;
-	
+	/* Stereo pairs the engine mixes per video frame; S_Update_ paints exactly
+	 * this many into the linear buffer that audio_callback then pushes. */
+	dma.samples_per_frame = SAMPLE_RATE / framerate;
+
+	/* Wire the engine's float output to our linear float buffer; s_float_output
+	 * is (re)asserted from the negotiation result so a reload picks up the
+	 * current frontend's capability. */
+	snd_float_buffer = audio_buffer_f;
+	s_float_output   = use_float_output;
+	memset(audio_buffer,   0, sizeof(audio_buffer));
+	memset(audio_buffer_f, 0, sizeof(audio_buffer_f));
+
 	snd_inited = qtrue;
-	
+
 	return qtrue;
 }
 
 /*
 ===============
 SNDDMA_GetDMAPos
+
+Frame-locked model: there is no DMA read cursor, but the engine's raw-stream
+bookkeeping still queries position. Playback position is the monotonic paint
+position (sample pairs), so report it in mono samples to match the legacy
+contract (s_soundtime = GetDMAPos/channels).
 ===============
 */
 int SNDDMA_GetDMAPos(void)
 {
-	if (!snd_inited) return 0;
-	
-	return audio_buffer_ptr;
+	return 0;
 }
 
 /*

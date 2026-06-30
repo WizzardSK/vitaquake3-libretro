@@ -31,6 +31,36 @@ int*     snd_p;
 int      snd_linear_count;
 short*   snd_out;
 
+/* Float output state (see snd_local.h). snd_out_f is the float counterpart of
+ * snd_out; both are set per-transfer. */
+int      s_float_output   = 0;
+float   *snd_float_buffer = NULL;
+static float *snd_out_f;
+
+/* Float counterpart of S_WriteLinearBlastStereo16. The paintbuffer accumulator
+ * carries 8 fractional bits (the int16 blast does snd_p[i] >> 8), so
+ * normalizing by 256*32768 preserves that sub-int16 precision. The int16 blast
+ * hard-saturates to [0x8000..0x7fff]; the float blast hard-clamps to [-1,1] so
+ * float and int16 stay tonally identical - float only removes the int16
+ * quantization, it does not reshape the signal. */
+#define SND_FLOAT_NORM (1.0f / 8388608.0f)	/* 1 / (256 * 32768) */
+
+static void S_WriteLinearBlastStereoFloat (void)
+{
+	int   i;
+	float f;
+
+	for (i = 0; i < snd_linear_count; i++)
+	{
+		f = (float)snd_p[i] * SND_FLOAT_NORM;
+		if (f > 1.0f)
+			f = 1.0f;
+		else if (f < -1.0f)
+			f = -1.0f;
+		snd_out_f[i] = f;
+	}
+}
+
 #if	!id386                                        // if configured not to use asm
 
 void S_WriteLinearBlastStereo16 (void)
@@ -108,6 +138,13 @@ LClampDone2:
 
 #endif
 
+/* Base sample-pair index for the current frame's paint. The output buffers are
+ * linear, one video frame long, so the destination offset is the painted time
+ * relative to this base (never a ring position). Set by S_Update_ before each
+ * S_PaintChannels call. s_paintedtime itself stays monotonic so channel, loop
+ * and raw-stream scheduling are unchanged. */
+int s_paintedFrameBase = 0;
+
 void S_TransferStereo16 (unsigned long *pbuf, int endtime)
 {
 	int		lpos;
@@ -118,14 +155,12 @@ void S_TransferStereo16 (unsigned long *pbuf, int endtime)
 
 	while (ls_paintedtime < endtime)
 	{
-	// handle recirculating buffer issues
-		lpos = ls_paintedtime % dma.fullsamples;
+		// linear destination: offset within this frame's buffer, no wrap
+		lpos = ls_paintedtime - s_paintedFrameBase;
 
 		snd_out = (short *) pbuf + (lpos<<1); // lpos * dma.channels
 
-		snd_linear_count = dma.fullsamples - lpos;
-		if (ls_paintedtime + snd_linear_count > endtime)
-			snd_linear_count = endtime - ls_paintedtime;
+		snd_linear_count = endtime - ls_paintedtime;
 
 		snd_linear_count <<= 1; // snd_linear_count *= dma.channels
 
@@ -137,6 +172,33 @@ void S_TransferStereo16 (unsigned long *pbuf, int endtime)
 
 		if( CL_VideoRecording( ) )
 			CL_WriteAVIAudioFrame( (byte *)snd_out, snd_linear_count << 1 ); // snd_linear_count * (dma.samplebits/8)
+	}
+}
+
+/* Float counterpart of S_TransferStereo16. Writes into snd_float_buffer at the
+ * same linear, frame-relative offset the int16 path uses. Reached only when
+ * float output was negotiated. */
+void S_TransferStereoFloat (float *fbuf, int endtime)
+{
+	int		lpos;
+	int		ls_paintedtime;
+
+	snd_p = (int *) paintbuffer;
+	ls_paintedtime = s_paintedtime;
+
+	while (ls_paintedtime < endtime)
+	{
+		lpos = ls_paintedtime - s_paintedFrameBase;
+
+		snd_out_f = fbuf + (lpos<<1);
+
+		snd_linear_count = endtime - ls_paintedtime;
+		snd_linear_count <<= 1;
+
+		S_WriteLinearBlastStereoFloat ();
+
+		snd_p += snd_linear_count;
+		ls_paintedtime += (snd_linear_count>>1);
 	}
 }
 
@@ -167,7 +229,11 @@ void S_TransferPaintBuffer(int endtime)
 	}
 
 
-	if (dma.samplebits == 16 && dma.channels == 2)
+	if (s_float_output && snd_float_buffer)
+	{	// float output: linear, frame-relative
+		S_TransferStereoFloat (snd_float_buffer, endtime);
+	}
+	else if (dma.samplebits == 16 && dma.channels == 2)
 	{	// optimized case
 		S_TransferStereo16 (pbuf, endtime);
 	}
