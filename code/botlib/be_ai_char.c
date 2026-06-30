@@ -384,11 +384,6 @@ int BotLoadCachedCharacter(char *charfile, float skill, int reload)
 {
 	int handle, cachedhandle, intskill;
 	bot_character_t *ch = NULL;
-#ifdef DEBUG
-	int starttime;
-
-	starttime = Sys_MilliSeconds();
-#endif //DEBUG
 
 	//find a free spot for a character
 	for (handle = 1; handle <= MAX_CLIENTS; handle++)
@@ -415,12 +410,6 @@ int BotLoadCachedCharacter(char *charfile, float skill, int reload)
 		botcharacters[handle] = ch;
 		//
 		botimport.Print(PRT_MESSAGE, "loaded skill %d from %s\n", intskill, charfile);
-#ifdef DEBUG
-		if (botDeveloper)
-		{
-			botimport.Print(PRT_MESSAGE, "skill %d loaded in %d msec from %s\n", intskill, Sys_MilliSeconds() - starttime, charfile);
-		} //end if
-#endif //DEBUG
 		return handle;
 	} //end if
 	//

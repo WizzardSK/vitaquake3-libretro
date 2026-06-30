@@ -42,7 +42,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "be_aas_funcs.h"
 #include "be_aas_def.h"
 
-extern int Sys_MilliSeconds(void);
 
 
 extern botlib_import_t botimport;
@@ -4358,8 +4357,8 @@ void AAS_StoreReachability(void)
 //===========================================================================
 int AAS_ContinueInitReachability(float time)
 {
-	int i, j, todo, start_time;
-	static float framereachability, reachability_delay;
+	int i, j, todo;
+	static float framereachability;
 	static int lastpercentage;
 
 	if (!aasworld.loaded) return qfalse;
@@ -4371,11 +4370,9 @@ int AAS_ContinueInitReachability(float time)
 		botimport.Print(PRT_MESSAGE, "calculating reachability...\n");
 		lastpercentage = 0;
 		framereachability = 2000;
-		reachability_delay = 1000;
 	} //end if
 	//number of areas to calculate reachability for this cycle
 	todo = aasworld.numreachabilityareas + (int) framereachability;
-	start_time = Sys_MilliSeconds();
 	//loop over the areas
 	for (i = aasworld.numreachabilityareas; i < aasworld.numareas && i < todo; i++)
 	{
@@ -4415,7 +4412,7 @@ int AAS_ContinueInitReachability(float time)
 		{
 			continue;
 		} //end if
-		//loop over the areas
+		//if there already is a reachability link from area i to j
 		for (j = 1; j < aasworld.numareas; j++)
 		{
 			if (i == j) continue;
@@ -4426,9 +4423,9 @@ int AAS_ContinueInitReachability(float time)
 			//check for a weapon jump reachability
 			AAS_Reachability_WeaponJump(i, j);
 		} //end for
-		//if the calculation took more time than the max reachability delay
-		if (Sys_MilliSeconds() - start_time > (int) reachability_delay) break;
-		//
+		//work is chunked by area count (todo) and progress percentage below;
+		//there is no wall clock in this core, so reachability calculation is
+		//bounded deterministically rather than by elapsed time.
 		if (aasworld.numreachabilityareas * 1000 / aasworld.numareas > lastpercentage) break;
 	} //end for
 	//

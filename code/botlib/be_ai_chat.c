@@ -967,9 +967,6 @@ bot_randomlist_t *BotLoadRandomStrings(char *filename)
 	bot_randomlist_t *randomlist, *lastrandom, *random;
 	bot_randomstring_t *randomstring;
 
-#ifdef DEBUG
-	int starttime = Sys_MilliSeconds();
-#endif //DEBUG
 
 	size = 0;
 	randomlist = NULL;
@@ -1053,7 +1050,6 @@ bot_randomlist_t *BotLoadRandomStrings(char *filename)
 	botimport.Print(PRT_MESSAGE, "loaded %s\n", filename);
 	//
 #ifdef DEBUG
-	botimport.Print(PRT_MESSAGE, "random strings %d msec\n", Sys_MilliSeconds() - starttime);
 	//BotDumpRandomStringList(randomlist);
 #endif //DEBUG
 	//
@@ -2039,11 +2035,6 @@ bot_chat_t *BotLoadInitialChat(char *chatfile, char *chatname)
 	bot_chat_t *chat = NULL;
 	bot_chattype_t *chattype = NULL;
 	bot_chatmessage_t *chatmessage = NULL;
-#ifdef DEBUG
-	int starttime;
-
-	starttime = Sys_MilliSeconds();
-#endif //DEBUG
 	//
 	size = 0;
 	foundchat = qfalse;
@@ -2192,9 +2183,6 @@ bot_chat_t *BotLoadInitialChat(char *chatfile, char *chatname)
 	{
 		BotCheckInitialChatIntegrety(chat);
 	} //end if
-#ifdef DEBUG
-	botimport.Print(PRT_MESSAGE, "initial chats loaded in %d msec\n", Sys_MilliSeconds() - starttime);
-#endif //DEBUG
 	//character was read successfully
 	return chat;
 } //end of the function BotLoadInitialChat
@@ -2970,10 +2958,6 @@ int BotSetupChatAI(void)
 {
 	char *file;
 
-#ifdef DEBUG
-	int starttime = Sys_MilliSeconds();
-#endif //DEBUG
-
 	file = LibVarString("synfile", "syn.c");
 	synonyms = BotLoadSynonyms(file);
 	file = LibVarString("rndfile", "rnd.c");
@@ -2989,9 +2973,6 @@ int BotSetupChatAI(void)
 
 	InitConsoleMessageHeap();
 
-#ifdef DEBUG
-	botimport.Print(PRT_MESSAGE, "setup chat AI %d msec\n", Sys_MilliSeconds() - starttime);
-#endif //DEBUG
 	return BLERR_NOERROR;
 } //end of the function BotSetupChatAI
 //===========================================================================

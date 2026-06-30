@@ -74,16 +74,6 @@ int botlibsetup = qfalse;
 // Returns:					-
 // Changes Globals:		-
 //===========================================================================
-int Sys_MilliSeconds(void)
-{
-	return clock() * 1000 / CLOCKS_PER_SEC;
-} //end of the function Sys_MilliSeconds
-//===========================================================================
-//
-// Parameter:				-
-// Returns:					-
-// Changes Globals:		-
-//===========================================================================
 qboolean ValidClientNumber(int num, char *str)
 {
 	if (num < 0 || num > botlibglobals.maxclients)
@@ -258,9 +248,6 @@ int Export_BotLibStartFrame(float time)
 //===========================================================================
 int Export_BotLibLoadMap(const char *mapname)
 {
-#ifdef DEBUG
-	int starttime = Sys_MilliSeconds();
-#endif
 	int errnum;
 
 	if (!BotLibSetup("BotLoadMap")) return BLERR_LIBRARYNOTSETUP;
@@ -274,9 +261,6 @@ int Export_BotLibLoadMap(const char *mapname)
 	BotSetBrushModelTypes();	//be_ai_move.h
 	//
 	botimport.Print(PRT_MESSAGE, "-------------------------------------\n");
-#ifdef DEBUG
-	botimport.Print(PRT_MESSAGE, "map loaded in %d msec\n", Sys_MilliSeconds() - starttime);
-#endif
 	//
 	return BLERR_NOERROR;
 } //end of the function Export_BotLibLoadMap
