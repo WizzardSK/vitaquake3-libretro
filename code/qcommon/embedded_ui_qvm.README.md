@@ -9,7 +9,10 @@ libretro core:
 - the **"Fullscreen:"** item removed from the *System > Graphics* menu (the core
   always renders fullscreen into the frontend's framebuffer);
 - the **"Voodoo"** entry removed from the **GL Driver** list (no 3dfx/glide path
-  exists in a modern GL core), leaving only "Default"; and
+  exists in a modern GL core), leaving only "Default";
+- the **"Color Depth:"** (r_colorbits) and **"Texture Quality:"** (r_texturebits)
+  items removed from *System > Graphics* — both drive cvars that no longer exist
+  in this 32-bit-only core ("Texture Detail:" / r_picmip is kept); and
 - the **"Sound System:"** (SDL/OpenAL) selector and the **"SDL Sound Quality:"**
   control removed from the *System > Sound* menu (the engine has a single base
   sound backend; OpenAL was removed from the core).
