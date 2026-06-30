@@ -1066,11 +1066,11 @@ void retro_set_environment(retro_environment_t cb)
       { "Gamepad Classic", RETRO_DEVICE_JOYPAD },
       { "Gamepad Classic Alt", RETRO_DEVICE_JOYPAD_ALT },
       { "Gamepad Modern", RETRO_DEVICE_MODERN },
-      { "Keyboard + Mouse", RETRO_DEVICE_KEYBOARD },
+      { "RetroKeyboard + Mouse", RETRO_DEVICE_KEYBOARD },
    };
 
    static const struct retro_controller_info ports[] = {
-      { port_1, 3 },
+      { port_1, 4 },
       { 0 },
    };
 
@@ -2408,56 +2408,36 @@ void Sys_SetKeys(int time){
 			old_ret = ret;
 		}
 		break;
-		/*
 		case RETRO_DEVICE_KEYBOARD:
-			if (input_cb(port, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_LEFT))
-				Sys_SetKeys(K_MOUSE1, 1);
-			else
-				Sys_SetKeys(K_MOUSE1, 0);
-			if (input_cb(port, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_RIGHT))
-				Sys_SetKeys(K_MOUSE2, 1);
-			else
-				Sys_SetKeys(K_MOUSE2, 0);
-			if (input_cb(port, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_MIDDLE))
-				Sys_SetKeys(K_MOUSE3, 1);
-			else
-				Sys_SetKeys(K_MOUSE3, 0);
-			if (input_cb(port, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_WHEELUP))
-				Sys_SetKeys(K_MOUSE4, 1);
-			else
-				Sys_SetKeys(K_MOUSE4, 0);
-			if (input_cb(port, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_WHEELDOWN))
-				Sys_SetKeys(K_MOUSE5, 1);
-			else
-				Sys_SetKeys(K_MOUSE5, 0);
-			if (input_cb(port, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_HORIZ_WHEELUP))
-				Sys_SetKeys(K_MOUSE6, 1);
-			else
-				Sys_SetKeys(K_MOUSE6, 0);
-			if (input_cb(port, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_HORIZ_WHEELDOWN))
-				Sys_SetKeys(K_MOUSE7, 1);
-			else
-				Sys_SetKeys(K_MOUSE7, 0);
-			if (quake_devices[0] == RETRO_DEVICE_KEYBOARD) {
-				if (input_cb(port, RETRO_DEVICE_KEYBOARD, 0, RETROK_UP))
-					Sys_SetKeys(K_UPARROW, 1);
-				else
-					Sys_SetKeys(K_UPARROW, 0);
-				if (input_cb(port, RETRO_DEVICE_KEYBOARD, 0, RETROK_DOWN))
-					Sys_SetKeys(K_DOWNARROW, 1);
-				else
-					Sys_SetKeys(K_DOWNARROW, 0);
-				if (input_cb(port, RETRO_DEVICE_KEYBOARD, 0, RETROK_LEFT))
-					Sys_SetKeys(K_LEFTARROW, 1);
-				else
-					Sys_SetKeys(K_LEFTARROW, 0);
-				if (input_cb(port, RETRO_DEVICE_KEYBOARD, 0, RETROK_RIGHT))
-					Sys_SetKeys(K_RIGHTARROW, 1);
-				else
-					Sys_SetKeys(K_RIGHTARROW, 0);
+		{
+			/* RetroKeyboard + Mouse. WASD map to the arrow movement keys the
+			 * bundled config binds (UP/DOWN = +forward/+back, LEFT/RIGHT =
+			 * +moveleft/+moveright strafe), so movement works out of the box.
+			 * Tilde (backquote) -> K_CONSOLE, which the engine toggles
+			 * specially. Mouse buttons -> fire / alt-fire. Each entry is
+			 * edge-detected so a key press and release each emit one event. */
+			static const struct { unsigned id; unsigned device; int qkey; } kbm[] = {
+				{ RETROK_w,                    RETRO_DEVICE_KEYBOARD, K_UPARROW    },
+				{ RETROK_s,                    RETRO_DEVICE_KEYBOARD, K_DOWNARROW  },
+				{ RETROK_a,                    RETRO_DEVICE_KEYBOARD, K_LEFTARROW  },
+				{ RETROK_d,                    RETRO_DEVICE_KEYBOARD, K_RIGHTARROW },
+				{ RETROK_BACKQUOTE,            RETRO_DEVICE_KEYBOARD, K_CONSOLE    },
+				{ RETRO_DEVICE_ID_MOUSE_LEFT,  RETRO_DEVICE_MOUSE,    K_MOUSE1     },
+				{ RETRO_DEVICE_ID_MOUSE_RIGHT, RETRO_DEVICE_MOUSE,    K_MOUSE2     },
+			};
+			static int kbm_prev[sizeof(kbm) / sizeof(kbm[0])];
+			unsigned k;
+			for (k = 0; k < sizeof(kbm) / sizeof(kbm[0]); k++)
+			{
+				int down = input_cb(port, kbm[k].device, 0, kbm[k].id) ? 1 : 0;
+				if (down != kbm_prev[k])
+				{
+					Key_Event(kbm[k].qkey, down, time);
+					kbm_prev[k] = down;
+				}
 			}
-			break;
-		*/
+		}
+		break;
 		case RETRO_DEVICE_NONE:
 			break;
 		}
@@ -2536,7 +2516,18 @@ void IN_Frame( void )
       } else rsy = 0;
 	  Com_QueueEvent(time, SE_MOUSE, rsx / slowdown, rsy / slowdown, 0, NULL);
 	}
-	
+
+	/* RetroKeyboard + Mouse: feed relative mouse motion as look. Deltas are
+	 * pixel counts; the engine applies cl_sensitivity, so pass them through
+	 * directly (same SE_MOUSE channel the analog stick uses above). */
+	if (quake_devices[0] == RETRO_DEVICE_KEYBOARD)
+	{
+		int mdx = input_cb(0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_X);
+		int mdy = input_cb(0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_Y);
+		if (mdx || mdy)
+			Com_QueueEvent(time, SE_MOUSE, mdx, mdy, 0, NULL);
+	}
+
 }
 
 /*
