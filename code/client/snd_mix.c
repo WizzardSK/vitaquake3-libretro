@@ -155,8 +155,6 @@ S_TransferPaintBuffer
 */
 void S_TransferPaintBuffer(int endtime)
 {
-	int 	count;
-	int		i;
 	unsigned long *pbuf = (unsigned long *)dma.buffer;
 	// float output: linear, frame-relative
 	if (s_float_output && snd_float_buffer)
