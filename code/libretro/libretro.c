@@ -5,6 +5,7 @@
 #include "../libretro-common/include/glsym/glsym.h"
 #include "../libretro-common/include/net/net_compat.h"
 #include "../libretro-common/include/net/net_socket.h"
+#include "../libretro-common/include/streams/file_stream.h"
 
 #include "libretro_core_options.h"
 #include "sys_local.h"
@@ -27,6 +28,30 @@ static unsigned audio_buffer_ptr;
 static int16_t audio_buffer[BUFFER_SIZE];
 static bool libretro_shared_context = false;
 static bool widescreen_enabled      = false;
+
+/* Deterministic timing: when enabled, the engine clock is driven by a fixed
+ * per-frame quantum (1000/framerate ms) advanced once per retro_run, instead of
+ * the host wall clock (cpu_features_get_time_usec). This makes a given input
+ * sequence produce identical output, which is required for run-ahead, netplay
+ * and deterministic record/replay. Disabled = legacy free-running behaviour. */
+static bool     deterministic_timing = false;
+static uint64_t frame_time_us        = 0;     /* accumulated virtual time, microseconds */
+static unsigned frame_ms_remainder   = 0;     /* carry of the 1000 % framerate remainder */
+
+/* One-shot init guards, defined later in this file. Forward-declared here so the
+ * teardown path (retro_unload_game/retro_deinit) can reset them, which is what
+ * allows the core to be loaded a second time in the same process (relevant for
+ * statically linked console frontends and multi-instance hosts). */
+extern bool     first_boot;
+extern bool     initial_resolution_set;
+extern qboolean snd_inited;
+extern uint8_t  psp2_inited;
+extern uint8_t  inited;
+
+/* Shared teardown helper, defined alongside retro_unload_game. Forward-declared
+ * so retro_deinit (which appears earlier in this file) can invoke it. */
+static void core_teardown(void);
+static bool core_initialized = false;
 
 int scr_width = 960, scr_height = 544;
 
@@ -89,7 +114,9 @@ void ( APIENTRY * qglStencilMask )(GLuint mask);
 
 #define GL_FUNCS_NUM 52
 
-#define MAX_INDICES 4096
+/* indices[] (declared in qgl.h, allocated in GLimp_Init) is the index array
+ * handed to qglDrawElements() by vglDrawObjects(). It must be at least
+ * SHADER_MAX_INDEXES (6000) entries; see the MAX_INDICES fix in qgl.h. */
 uint16_t* indices;
 float *gVertexBuffer;
 uint8_t *gColorBuffer;
@@ -758,6 +785,9 @@ void retro_init(void)
 
 void retro_deinit(void)
 {
+   /* core_teardown() is idempotent; ensures cleanup even if the frontend calls
+    * retro_deinit without a preceding retro_unload_game. */
+   core_teardown();
    libretro_supports_bitmasks = false;
 }
 
@@ -830,6 +860,17 @@ static void update_variables(bool startup)
 			invert_y_axis = 1;
 		else
 			invert_y_axis = -1;
+	}
+
+	var.key = "vitaquakeiii_deterministic";
+	var.value = NULL;
+
+	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+	{
+		if (strcmp(var.value, "disabled") == 0)
+			deterministic_timing = false;
+		else
+			deterministic_timing = true;
 	}
 	
 	// We need setup sequence to be finished to change Cvar values
@@ -980,7 +1021,7 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    info->geometry.max_width    = scr_width;
    info->geometry.max_height   = scr_height;
    if (widescreen_enabled)
-      info->geometry.aspect_ratio = (16.9) / (9.0);
+      info->geometry.aspect_ratio = (16.0f) / (9.0f);
    else
       info->geometry.aspect_ratio = (scr_width * 1.0f) / (scr_height * 1.0f);
 }
@@ -1003,6 +1044,19 @@ void retro_set_environment(retro_environment_t cb)
 
    libretro_set_core_options(environ_cb);
    cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
+
+   /* Obtain the frontend VFS interface and hand it to libretro-common's
+    * filestream layer. All engine file I/O (qcommon/files.c, qcommon/ioapi.c)
+    * is routed through filestream_*, so this makes the core use the frontend's
+    * virtual filesystem when available, and falls back to libretro-common's
+    * own vfs_implementation.c otherwise. Must run before any file access. */
+   {
+      struct retro_vfs_interface_info vfs_iface_info;
+      vfs_iface_info.required_interface_version = FILESTREAM_REQUIRED_VFS_VERSION;
+      vfs_iface_info.iface                      = NULL;
+      if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
+         filestream_vfs_init(&vfs_iface_info);
+   }
 }
 
 void retro_reset(void)
@@ -1042,8 +1096,51 @@ void retro_set_video_refresh(retro_video_refresh_t cb)
    video_cb = cb;
 }
 
+/* Full teardown shared by retro_unload_game/retro_deinit. Mirrors the engine's
+ * clean-quit path (Com_Quit_f) but WITHOUT Sys_Quit()/exit(), frees the buffers
+ * this translation unit owns, and resets every one-shot init guard so a
+ * subsequent retro_load_game in the same process re-initialises correctly. */
+static void core_teardown(void)
+{
+   if (core_initialized)
+   {
+      /* Tear the engine down the same way the 'quit' command would. */
+      VM_Forced_Unload_Start();
+      SV_Shutdown("Server quit");
+      CL_Shutdown("Client quit", qtrue, qtrue);
+      VM_Forced_Unload_Done();
+      Com_Shutdown();
+      FS_Shutdown(qtrue);
+      core_initialized = false;
+   }
+
+   /* Free the persistent immediate-mode batch buffers (allocated in GLimp_Init). */
+   if (indices)            { free(indices);            indices            = NULL; }
+   if (gVertexBufferPtr)   { free(gVertexBufferPtr);   gVertexBufferPtr   = NULL; }
+   if (gColorBufferPtr)    { free(gColorBufferPtr);    gColorBufferPtr    = NULL; }
+   if (gTexCoordBufferPtr) { free(gTexCoordBufferPtr); gTexCoordBufferPtr = NULL; }
+   if (gColorBuffer255)    { free(gColorBuffer255);    gColorBuffer255    = NULL; }
+   gVertexBuffer   = NULL;
+   gColorBuffer    = NULL;
+   gTexCoordBuffer = NULL;
+
+   if (BASEGAME) { free(BASEGAME); BASEGAME = NULL; }
+
+   /* Reset one-shot guards so a second load re-runs init from scratch. */
+   first_boot             = true;
+   first_reset            = true;
+   inited                 = 0;
+   psp2_inited            = 0;
+   snd_inited             = qfalse;
+   initial_resolution_set = false;
+   context_needs_reinit   = true;
+   frame_time_us          = 0;
+   frame_ms_remainder     = 0;
+}
+
 void retro_unload_game(void)
 {
+   core_teardown();
 }
 
 unsigned retro_get_region(void)
@@ -1183,8 +1280,14 @@ bool retro_load_game(const struct retro_game_info *info)
 
 	if (!info)
 		return false;
-	
-	sprintf(path_lower, "%s", info->path);
+
+	/* Reset the deterministic virtual clock so each load starts from t=0. */
+	frame_time_us      = 0;
+	frame_ms_remainder = 0;
+
+	/* info->path is frontend-supplied and may exceed sizeof(path_lower);
+	 * bound the copy to avoid a stack buffer overflow. */
+	snprintf(path_lower, sizeof(path_lower), "%s", info->path);
 	
 	for (i=0; path_lower[i]; ++i)
 		path_lower[i] = tolower(path_lower[i]);
@@ -1266,7 +1369,20 @@ void retro_run(void)
 	qglBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
 	qglEnable(GL_TEXTURE_2D);
 	qglEnableClientState(GL_VERTEX_ARRAY);
-	
+
+	/* Advance the deterministic virtual clock by exactly one frame quantum.
+	 * Using integer ms/frame with a remainder carry keeps the long-run rate at
+	 * precisely 'framerate' fps with no floating-point drift. Done before any
+	 * engine code (Com_Frame, input, audio) reads Sys_Milliseconds() this frame. */
+	if (deterministic_timing && framerate > 0) {
+		frame_time_us += 1000000u / (unsigned)framerate;
+		frame_ms_remainder += 1000000u % (unsigned)framerate;
+		if (frame_ms_remainder >= (unsigned)framerate) {
+			frame_ms_remainder -= (unsigned)framerate;
+			frame_time_us += 1;
+		}
+	}
+
 	if (first_boot) {
 		char commandLine[MAX_STRING_CHARS] = {0};
 		
@@ -1294,6 +1410,7 @@ void retro_run(void)
 		update_variables(false);
 		Cvar_Set("name", Sys_GetCurrentUser());
 		first_boot = false;
+		core_initialized = true;
 	}
 	
 	bool updated = false;
@@ -1312,13 +1429,19 @@ void retro_run(void)
 
 void log2file(const char *format, ...) {
 	__gnuc_va_list arg;
-	int done;
-	va_start(arg, format);
 	char msg[512];
-	done = vsprintf(msg, format, arg);
+	size_t len;
+	va_start(arg, format);
+	/* vsnprintf bounds the format expansion; vsprintf could overflow msg. */
+	vsnprintf(msg, sizeof(msg), format, arg);
 	va_end(arg);
-	int i;
-	sprintf(msg, "%s\n", msg);
+	/* Append a newline in place rather than sprintf(msg, "%s\n", msg), which
+	 * aliases src and dst (undefined behaviour). */
+	len = strlen(msg);
+	if (len < sizeof(msg) - 1) {
+		msg[len]     = '\n';
+		msg[len + 1] = '\0';
+	}
 	CON_Print(msg);
 }
 
@@ -1375,9 +1498,19 @@ Sys_Milliseconds
 int curtime;
 int Sys_Milliseconds(void) {
     static uint64_t	base;
+	uint64_t time;
 
-	uint64_t time = cpu_features_get_time_usec() / 1000;
-	
+	/* Deterministic mode: report the virtual clock advanced once per frame in
+	 * retro_run(). Every consumer of engine time (Com_Frame msec, input event
+	 * timestamps, audio mix-ahead) funnels through here, so this single source
+	 * makes the whole simulation reproducible. */
+	if (deterministic_timing) {
+		curtime = (int)(frame_time_us / 1000);
+		return curtime;
+	}
+
+	time = cpu_features_get_time_usec() / 1000;
+
     if (!base) {
 		base = time;
     }
@@ -1501,8 +1634,8 @@ const char *Sys_Dirname(char *path) {
 Sys_FOpen
 ==============
 */
-FILE *Sys_FOpen(const char *ospath, const char *mode) {
-    return fopen(ospath, mode);
+Q_FILE *Sys_FOpen(const char *ospath, const char *mode) {
+    return Q_fopen(ospath, mode);
 }
 
 /*
@@ -1521,7 +1654,7 @@ qboolean Sys_Mkdir(const char *path) {
 Sys_Mkfifo
 ==================
 */
-FILE *Sys_Mkfifo(const char *ospath) {
+Q_FILE *Sys_Mkfifo(const char *ospath) {
     return NULL;
 }
 
@@ -1999,7 +2132,6 @@ uint32_t cur_width;
 
 void GLimp_Init( qboolean coreContext)
 {
-	int i;
 	if (r_mode->integer < 0) r_mode->integer = 3;
 	
 	glConfig.vidWidth = scr_width;
@@ -2024,16 +2156,27 @@ void GLimp_Init( qboolean coreContext)
 	}else if (glConfig.vidWidth != cur_width){ // Changed resolution in game, restarting the game
 
 	}
-	indices = (uint16_t*)malloc(sizeof(uint16_t)*MAX_INDICES);
-	for (i=0;i<MAX_INDICES;i++){
-		indices[i] = i;
+	/* These batch buffers are persistent for the lifetime of the core. GLimp_Init
+	 * is re-entered on every CL_Vid_Restart_f (context reset / resolution change),
+	 * so allocate exactly once to avoid leaking ~6.5 MB per vid_restart. */
+	if (!indices) {
+		int j;
+		indices = (uint16_t*)malloc(sizeof(uint16_t)*MAX_INDICES);
+		for (j=0;j<MAX_INDICES;j++){
+			indices[j] = j;
+		}
 	}
 	qglEnableClientState(GL_VERTEX_ARRAY);
-	gVertexBufferPtr = (float*)malloc(0x400000);
-	gColorBufferPtr = (uint8_t*)malloc(0x200000);
-	gTexCoordBufferPtr = (float*)malloc(0x200000);
-	gColorBuffer255 = (uint8_t*)malloc(0x3000);
-	memset(gColorBuffer255, 0xFF, 0x3000);
+	if (!gVertexBufferPtr)
+		gVertexBufferPtr = (float*)malloc(0x400000);
+	if (!gColorBufferPtr)
+		gColorBufferPtr = (uint8_t*)malloc(0x200000);
+	if (!gTexCoordBufferPtr)
+		gTexCoordBufferPtr = (float*)malloc(0x200000);
+	if (!gColorBuffer255) {
+		gColorBuffer255 = (uint8_t*)malloc(0x3000);
+		memset(gColorBuffer255, 0xFF, 0x3000);
+	}
 	gVertexBuffer = gVertexBufferPtr;
 	gColorBuffer = gColorBufferPtr;
 	gTexCoordBuffer = gTexCoordBufferPtr;
