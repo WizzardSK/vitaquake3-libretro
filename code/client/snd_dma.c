@@ -1196,10 +1196,6 @@ Called once each time through the main loop
 ============
 */
 void S_Base_Update( void ) {
-	int			i;
-	int			total;
-	channel_t	*ch;
-
 	if ( !s_soundStarted || s_soundMuted ) {
 //		Com_DPrintf ("not started or muted\n");
 		return;
@@ -1432,15 +1428,29 @@ void S_FreeOldestSound( void ) {
 	sfx_t	*sfx;
 	sndBuffer	*buffer, *nbuffer;
 
-	oldest = Com_Milliseconds();
+	/* Find the least-recently-used in-memory sound. Seed 'oldest' from the
+	 * highest possible value and use <= so that sounds sharing the current
+	 * frame's timestamp still qualify: under the frame-locked clock
+	 * Com_Milliseconds() is constant for the whole frame, and a map load
+	 * registers many sounds in one frame all stamped lastTimeUsed ==
+	 * com_frameTime(+1). Comparing against "now" (the old code) then matched
+	 * nothing, left used==0, freed no buffers, and span SND_malloc forever.
+	 * Scanning for the actual minimum always frees something. */
+	oldest = 0x7fffffff;
 	used = 0;
 
 	for (i=1 ; i < s_numSfx ; i++) {
 		sfx = &s_knownSfx[i];
-		if (sfx->inMemory && sfx->lastTimeUsed<oldest) {
+		if (sfx->inMemory && sfx->lastTimeUsed <= oldest) {
 			used = i;
 			oldest = sfx->lastTimeUsed;
 		}
+	}
+
+	if (!used) {
+		/* Nothing is resident to evict. The pool is genuinely exhausted by a
+		 * single frame's working set; the caller's redo loop must not spin. */
+		return;
 	}
 
 	sfx = &s_knownSfx[used];

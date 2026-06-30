@@ -61,6 +61,11 @@ sndBuffer*	SND_malloc(void) {
 	sndBuffer *v;
 redo:
 	if (freelist == NULL) {
+		/* S_FreeOldestSound always frees the least-recently-used resident
+		 * sound (it scans for the minimum lastTimeUsed with <=, so it makes
+		 * progress even when every sound shares the current frame's timestamp
+		 * under the frame-locked clock). The pool is sized so a single frame's
+		 * working set always fits, so this terminates. */
 		S_FreeOldestSound();
 		goto redo;
 	}
@@ -77,7 +82,14 @@ redo:
 void SND_setup(void)
 {
 	sndBuffer *p, *q;
-	int scs = (8 * 1536); /* soundMegs hardcoded here to 8 */
+	/* Sound buffer pool, byte-derived so the size is honest regardless of
+	 * sizeof(sndBuffer) (which grew when SND_CHUNK_SIZE was raised to 1024).
+	 * 8 MB matches stock Quake 3's default soundMegs; it is a soft LRU cache
+	 * (SND_malloc evicts via S_FreeOldestSound when full), so this only bounds
+	 * how much sound stays resident, and it is far larger than any single
+	 * baseq3 sound, so a load never deadlocks the eviction loop. */
+	const int soundMegs = 8;
+	int scs = (soundMegs * 1024 * 1024) / sizeof(sndBuffer);
 	if (buffer == NULL) buffer = malloc(scs*sizeof(sndBuffer) );
 	// allocate the stack based hunk allocator
 	if (sfxScratchBuffer == NULL) sfxScratchBuffer = malloc(SND_CHUNK_SIZE * sizeof(short) * 4);	//Hunk_Alloc(SND_CHUNK_SIZE * sizeof(short) * 4);
