@@ -2117,7 +2117,6 @@ qboolean SNDDMA_Init(void)
 	dma.speed = audio_sample_rate;
 	dma.channels = 2;
 	dma.samples = AUDIO_BUFFER_SIZE * 2;        /* mono samples in the buffer */
-	dma.submission_chunk = 1;
 	dma.buffer = (byte *)audio_buffer;
 	/* Stereo pairs the engine mixes per video frame; S_Update_ paints exactly
 	 * this many into the linear buffer that audio_callback then pushes. */

@@ -65,7 +65,6 @@ typedef struct sfx_s {
 typedef struct {
 	int			channels;
 	int			samples;				// mono samples in buffer
-	int			submission_chunk;		// don't mix less than this #
 	int			samplebits;
 	int			speed;
 	byte		*buffer;
