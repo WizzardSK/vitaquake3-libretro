@@ -163,22 +163,18 @@ float	Q_crandom( int *seed ) {
 //=======================================================
 
 signed char ClampChar( int i ) {
-	if ( i < -128 ) {
+	if ( i < -128 )
 		return -128;
-	}
-	if ( i > 127 ) {
+	if ( i > 127 )
 		return 127;
-	}
 	return i;
 }
 
 signed short ClampShort( int i ) {
-	if ( i < -32768 ) {
+	if ( i < -32768 )
 		return -32768;
-	}
-	if ( i > 0x7fff ) {
+	if ( i > 0x7fff )
 		return 0x7fff;
-	}
 	return i;
 }
 
@@ -188,9 +184,8 @@ int DirToByte( vec3_t dir ) {
 	int		i, best;
 	float	d, bestd;
 
-	if ( !dir ) {
+	if ( !dir )
 		return 0;
-	}
 
 	bestd = 0;
 	best = 0;
@@ -238,19 +233,15 @@ unsigned ColorBytes4 (float r, float g, float b, float a) {
 }
 
 float NormalizeColor( const vec3_t in, vec3_t out ) {
-	float	max;
-	
-	max = in[0];
-	if ( in[1] > max ) {
+	float max = in[0];
+	if ( in[1] > max )
 		max = in[1];
-	}
-	if ( in[2] > max ) {
+	if ( in[2] > max )
 		max = in[2];
-	}
 
-	if ( !max ) {
+	if ( !max )
 		VectorClear( out );
-	} else {
+	else {
 		out[0] = in[0] / max;
 		out[1] = in[1] / max;
 		out[2] = in[2] / max;
@@ -273,9 +264,8 @@ qboolean PlaneFromPoints( vec4_t plane, const vec3_t a, const vec3_t b, const ve
 	VectorSubtract( b, a, d1 );
 	VectorSubtract( c, a, d2 );
 	CrossProduct( d2, d1, plane );
-	if ( VectorNormalize( plane ) == 0 ) {
+	if ( VectorNormalize( plane ) == 0 )
 		return qfalse;
-	}
 
 	plane[3] = DotProduct( a, plane );
 	return qtrue;
@@ -339,9 +329,8 @@ void RotatePointAroundVector( vec3_t dst, const vec3_t dir, const vec3_t point,
 	MatrixMultiply( m, zrot, tmpmat );
 	MatrixMultiply( tmpmat, im, rot );
 
-	for ( i = 0; i < 3; i++ ) {
+	for ( i = 0; i < 3; i++ )
 		dst[i] = rot[i][0] * point[0] + rot[i][1] * point[1] + rot[i][2] * point[2];
-	}
 }
 
 /*
@@ -382,24 +371,19 @@ void vectoangles( const vec3_t value1, vec3_t angles ) {
 		}
 	}
 	else {
-		if ( value1[0] ) {
+		if ( value1[0] )
 			yaw = ( atan2 ( value1[1], value1[0] ) * 180 / M_PI );
-		}
-		else if ( value1[1] > 0 ) {
+		else if ( value1[1] > 0 )
 			yaw = 90;
-		}
-		else {
+		else
 			yaw = 270;
-		}
-		if ( yaw < 0 ) {
+		if ( yaw < 0 )
 			yaw += 360;
-		}
 
 		forward = sqrt ( value1[0]*value1[0] + value1[1]*value1[1] );
 		pitch = ( atan2(value1[2], forward) * 180 / M_PI );
-		if ( pitch < 0 ) {
+		if ( pitch < 0 )
 			pitch += 360;
-		}
 	}
 
 	angles[PITCH] = -pitch;
@@ -532,17 +516,11 @@ LerpAngle
 ===============
 */
 float LerpAngle (float from, float to, float frac) {
-	float	a;
-
-	if ( to - from > 180 ) {
+	if ( to - from > 180 )
 		to -= 360;
-	}
-	if ( to - from < -180 ) {
+	if ( to - from < -180 )
 		to += 360;
-	}
-	a = from + frac * (to - from);
-
-	return a;
+	return from + frac * (to - from);
 }
 
 
@@ -554,15 +532,11 @@ Always returns a value from -180 to 180
 =================
 */
 float	AngleSubtract( float a1, float a2 ) {
-	float	a;
-
-	a = a1 - a2;
-	while ( a > 180 ) {
+	float a = a1 - a2;
+	while ( a > 180 )
 		a -= 360;
-	}
-	while ( a < -180 ) {
+	while ( a < -180 )
 		a += 360;
-	}
 	return a;
 }
 
@@ -575,8 +549,7 @@ void AnglesSubtract( vec3_t v1, vec3_t v2, vec3_t v3 ) {
 
 
 float	AngleMod(float a) {
-	a = (360.0/65536) * ((int)(a*(65536/360.0)) & 65535);
-	return a;
+	return (360.0/65536) * ((int)(a*(65536/360.0)) & 65535);
 }
 
 
@@ -601,9 +574,8 @@ returns angle normalized to the range [-180 < angle <= 180]
 */
 float AngleNormalize180 ( float angle ) {
 	angle = AngleNormalize360( angle );
-	if ( angle > 180.0 ) {
+	if ( angle > 180.0 )
 		angle -= 360.0;
-	}
 	return angle;
 }
 
@@ -634,9 +606,8 @@ void SetPlaneSignbits (cplane_t *out) {
 	// for fast box on planeside test
 	bits = 0;
 	for (j=0 ; j<3 ; j++) {
-		if (out->normal[j] < 0) {
+		if (out->normal[j] < 0)
 			bits |= 1<<j;
-		}
 	}
 	out->signbits = bits;
 }
@@ -712,26 +683,20 @@ void ClearBounds( vec3_t mins, vec3_t maxs ) {
 }
 
 void AddPointToBounds( const vec3_t v, vec3_t mins, vec3_t maxs ) {
-	if ( v[0] < mins[0] ) {
+	if ( v[0] < mins[0] )
 		mins[0] = v[0];
-	}
-	if ( v[0] > maxs[0]) {
+	if ( v[0] > maxs[0])
 		maxs[0] = v[0];
-	}
 
-	if ( v[1] < mins[1] ) {
+	if ( v[1] < mins[1] )
 		mins[1] = v[1];
-	}
-	if ( v[1] > maxs[1]) {
+	if ( v[1] > maxs[1])
 		maxs[1] = v[1];
-	}
 
-	if ( v[2] < mins[2] ) {
+	if ( v[2] < mins[2] )
 		mins[2] = v[2];
-	}
-	if ( v[2] > maxs[2]) {
+	if ( v[2] > maxs[2])
 		maxs[2] = v[2];
-	}
 }
 
 qboolean BoundsIntersect(const vec3_t mins, const vec3_t maxs,
@@ -743,9 +708,7 @@ qboolean BoundsIntersect(const vec3_t mins, const vec3_t maxs,
 		mins[0] > maxs2[0] ||
 		mins[1] > maxs2[1] ||
 		mins[2] > maxs2[2])
-	{
 		return qfalse;
-	}
 
 	return qtrue;
 }
@@ -759,10 +722,7 @@ qboolean BoundsIntersectSphere(const vec3_t mins, const vec3_t maxs,
 		origin[1] + radius < mins[1] ||
 		origin[2] - radius > maxs[2] ||
 		origin[2] + radius < mins[2])
-	{
 		return qfalse;
-	}
-
 	return qtrue;
 }
 
@@ -775,10 +735,7 @@ qboolean BoundsIntersectPoint(const vec3_t mins, const vec3_t maxs,
 		origin[1] < mins[1] ||
 		origin[2] > maxs[2] ||
 		origin[2] < mins[2])
-	{
 		return qfalse;
-	}
-
 	return qtrue;
 }
 
@@ -815,9 +772,8 @@ vec_t VectorNormalize2( const vec3_t v, vec3_t out) {
 		out[0] = v[0]*ilength;
 		out[1] = v[1]*ilength;
 		out[2] = v[2]*ilength;
-	} else {
+	} else
 		VectorClear( out );
-	}
 		
 	return length;
 
@@ -867,12 +823,9 @@ void Vector4Scale( const vec4_t in, vec_t scale, vec4_t out ) {
 
 
 int Q_log2( int val ) {
-	int answer;
-
-	answer = 0;
-	while ( ( val>>=1 ) != 0 ) {
+	int answer = 0;
+	while ( ( val>>=1 ) != 0 )
 		answer++;
-	}
 	return answer;
 }
 
@@ -925,11 +878,9 @@ void MatrixMultiply(float in1[3][3], float in2[3][3], float out[3][3]) {
 
 
 void AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up) {
-	float		angle;
-	static float		sr, sp, sy, cr, cp, cy;
+	static float sr, sp, sy, cr, cp, cy;
 	// static to help MS compiler fp bugs
-
-	angle = angles[YAW] * (M_PI*2 / 360);
+	float angle = angles[YAW] * (M_PI*2 / 360);
 	sy = sin(angle);
 	cy = cos(angle);
 	angle = angles[PITCH] * (M_PI*2 / 360);
@@ -1027,16 +978,11 @@ acos(*(float*) &i) == -1.#IND0
 =====================
 */
 float Q_acos(float c) {
-	float angle;
-
-	angle = acos(c);
-
-	if (angle > M_PI) {
+	float angle = acos(c);
+	if (angle > M_PI)
 		return (float)M_PI;
-	}
-	if (angle < -M_PI) {
+	if (angle < -M_PI)
 		return (float)M_PI;
-	}
 	return angle;
 }
 #endif
