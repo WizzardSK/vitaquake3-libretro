@@ -1424,12 +1424,18 @@ void retro_run(void)
 		/* The pak-integrity gate (FS_CheckPak0) runs inside Com_Init below, so
 		 * fs_strictPaks must be set via the startup command line ('+set'), which
 		 * Com_Init parses before FS_Startup -- not via update_variables(), which
-		 * runs too late. When disabled, a partial/CD install (missing the 1.32
-		 * point-release paks) boots in a degraded mode instead of exiting. */
+		 * runs too late. Default is permissive (disabled): partial/CD installs
+		 * missing the 1.32 point-release paks boot in a degraded mode instead of
+		 * exiting. Pass the explicit value for either choice so the option always
+		 * wins over the cvar default. */
 		strict_var.key   = "vitaquakeiii_strict_paks";
 		strict_var.value = NULL;
 		if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &strict_var) &&
-		    strict_var.value && !strcmp(strict_var.value, "disabled"))
+		    strict_var.value && !strcmp(strict_var.value, "enabled"))
+		{
+			Q_strcat(commandLine, sizeof(commandLine), " +set fs_strictPaks 1");
+		}
+		else
 		{
 			Q_strcat(commandLine, sizeof(commandLine), " +set fs_strictPaks 0");
 		}
