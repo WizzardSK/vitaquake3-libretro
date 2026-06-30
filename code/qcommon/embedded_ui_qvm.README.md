@@ -1,9 +1,13 @@
 # embedded_ui_qvm.h
 
 `embedded_ui_qvm.h` contains a baseq3 `ui.qvm` baked into the core. It is the
-stock-format (vq3) Quake III `q3_ui` bytecode with the **"Fullscreen:"** item
-removed from the in-game *System > Graphics* menu, because the libretro core
-always renders fullscreen into the frontend's framebuffer.
+stock-format (vq3) Quake III `q3_ui` bytecode with two changes for the libretro
+core:
+
+- the **"Fullscreen:"** item removed from the *System > Graphics* menu (the core
+  always renders fullscreen into the frontend's framebuffer); and
+- the **"Voodoo"** entry removed from the **GL Driver** list (no 3dfx/glide path
+  exists in a modern GL core), leaving only "Default".
 
 At runtime the engine uses this embedded copy for the `ui` VM **unless** a loose
 `baseq3/vm/ui.qvm` is present in a real game directory on disk, in which case
