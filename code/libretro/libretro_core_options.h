@@ -71,6 +71,23 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "auto"
    },
    {
+      "vitaquakeiii_audio_samplerate",
+      "Sound Samplerate (Hint) (restart)",
+      NULL,
+      "Audio output rate. 'Auto' matches the frontend's target rate, which avoids the frontend resampler's extra filtering and group delay; that rate-matching, not a higher number, is what helps latency. Higher fixed rates give the music-stream resampler finer time resolution, but do little for Quake's own low-rate sound effects. Falls back to 48 kHz when the frontend can't report a target rate. Requires a restart.",
+      NULL,
+      NULL,
+      {
+         { "auto",  "Auto" },
+         { "32000", "32 kHz" },
+         { "44100", "44 kHz" },
+         { "48000", "48 kHz" },
+         { "96000", "96 kHz" },
+         { NULL, NULL },
+      },
+      "auto"
+   },
+   {
       "vitaquakeiii_resolution",
       "Internal resolution (restart)",
       NULL,
@@ -249,6 +266,23 @@ struct retro_core_option_v2_definition option_defs_it[] = {
          { "200",              "200fps"},
          { "240",              "240fps"},
          { "244",              "244fps"},
+         { NULL, NULL },
+      },
+      "auto"
+   },
+   {
+      "vitaquakeiii_audio_samplerate",
+      "Frequenza audio (suggerimento) (riavvio)",
+      NULL,
+      "Frequenza di uscita audio. 'Auto' corrisponde alla frequenza richiesta dal frontend, riducendo latenza e filtraggio del ricampionatore. Frequenze fisse piu alte offrono maggiore risoluzione al ricampionatore della musica, ma poco per gli effetti sonori di Quake. Ripiega su 48 kHz se il frontend non indica una frequenza. Richiede un riavvio.",
+      NULL,
+      NULL,
+      {
+         { "auto",  "Auto" },
+         { "32000", "32 kHz" },
+         { "44100", "44 kHz" },
+         { "48000", "48 kHz" },
+         { "96000", "96 kHz" },
          { NULL, NULL },
       },
       "auto"

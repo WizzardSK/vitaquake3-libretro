@@ -19,12 +19,23 @@
 
 #include <glsm/glsm.h>
 
-#define SAMPLE_RATE   	48000
+#define SAMPLE_RATE_DEFAULT	48000
 /* One-frame linear output buffer, in stereo sample-pairs. Sized for the
- * worst-case low framerate (SAMPLE_RATE/framerate pairs) plus headroom; at
- * 60fps the engine writes 800 pairs here per frame and audio_callback hands
- * them straight to the frontend. No ring, no wrap. */
-#define AUDIO_BUFFER_SIZE	8192
+ * worst-case rate/framerate combination the "Sound Samplerate" option allows
+ * (96 kHz at a low framerate) plus headroom; at 48 kHz / 60 fps the engine
+ * writes 800 pairs here per frame and audio_callback hands them straight to the
+ * frontend. No ring, no wrap. */
+#define AUDIO_BUFFER_SIZE	16384
+
+/* Output sample rate, resolved from the "Sound Samplerate (Hint)" core option
+ * at startup (update_audio_samplerate) before SNDDMA_Init reads it. */
+static int audio_sample_rate = SAMPLE_RATE_DEFAULT;
+
+/* Backported from upstream libretro.h: lets "Auto" match the frontend's target
+ * output rate. Guarded so a later header update won't conflict. */
+#ifndef RETRO_ENVIRONMENT_GET_TARGET_SAMPLE_RATE
+#define RETRO_ENVIRONMENT_GET_TARGET_SAMPLE_RATE (81 | RETRO_ENVIRONMENT_EXPERIMENTAL)
+#endif
 
 int framerate = 165;
 static int invert_y_axis = 1;
@@ -804,6 +815,47 @@ void gp_layout_set_bind(gp_layout_t gp_layout)
 }
 
 bool initial_resolution_set = false;
+
+/* Snap a host target rate to the nearest value the option advertises. */
+static int nearest_supported_rate(unsigned host_rate)
+{
+	if      (host_rate <= (32000u + 44100u) / 2) return 32000;
+	else if (host_rate <= (44100u + 48000u) / 2) return 44100;
+	else if (host_rate <= (48000u + 96000u) / 2) return 48000;
+	return 96000;
+}
+
+/* Resolve the "Sound Samplerate (Hint)" core option to a concrete rate.
+ * "auto" asks the frontend for its target rate via
+ * RETRO_ENVIRONMENT_GET_TARGET_SAMPLE_RATE and snaps to the nearest advertised
+ * value; if the frontend doesn't implement the call it keeps the default
+ * (48 kHz), so frontends without the call see no change. An explicit
+ * "32000".."96000" is taken verbatim. Resolved before SNDDMA_Init reads it. */
+static void update_audio_samplerate(void)
+{
+	struct retro_variable var;
+	int chosen = SAMPLE_RATE_DEFAULT;
+
+	var.key   = "vitaquakeiii_audio_samplerate";
+	var.value = NULL;
+
+	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+	{
+		if (!strcmp(var.value, "auto"))
+		{
+			unsigned host_rate = 0;
+			if (environ_cb(RETRO_ENVIRONMENT_GET_TARGET_SAMPLE_RATE, &host_rate)
+					&& host_rate > 0)
+				chosen = nearest_supported_rate(host_rate);
+			/* else: keep the default */
+		}
+		else
+			chosen = atoi(var.value);  /* "32000".."96000" */
+	}
+
+	audio_sample_rate = chosen;
+}
+
 static void update_variables(bool startup)
 {
 	struct retro_variable var;
@@ -827,6 +879,10 @@ static void update_variables(bool startup)
 		}
 		else
 			framerate    = 60;
+
+		/* Sound output rate is fixed for the session; resolve it once at
+		 * startup, before SNDDMA_Init reads audio_sample_rate. */
+		update_audio_samplerate();
 	}
 	
 	var.key = "vitaquakeiii_resolution";
@@ -992,7 +1048,7 @@ void retro_get_system_info(struct retro_system_info *info)
 void retro_get_system_av_info(struct retro_system_av_info *info)
 {
    info->timing.fps            = framerate;
-   info->timing.sample_rate    = SAMPLE_RATE;
+   info->timing.sample_rate    = audio_sample_rate;
 
    info->geometry.base_width   = scr_width;
    info->geometry.base_height  = scr_height;
@@ -1211,7 +1267,7 @@ static void audio_callback(void)
 	 * (frame_samps stereo pairs) into the linear output buffer during
 	 * Com_Frame -> S_Update -> S_Update_. Hand that buffer straight to the
 	 * frontend. No DMA read cursor, no ring, no wrap. */
-	unsigned frame_samps            = SAMPLE_RATE / framerate; /* stereo pairs */
+	unsigned frame_samps            = audio_sample_rate / framerate; /* stereo pairs */
 	unsigned audio_frames_remaining = frame_samps;
 	uint64_t av_flags               = RETRO_AV_ENABLE_VIDEO | RETRO_AV_ENABLE_AUDIO;
 	int      push_audio;
@@ -2058,7 +2114,7 @@ qboolean SNDDMA_Init(void)
 	if (psp2_inited) return qtrue;
 	psp2_inited = 1;
 	dma.samplebits = 16;
-	dma.speed = SAMPLE_RATE;
+	dma.speed = audio_sample_rate;
 	dma.channels = 2;
 	dma.samples = AUDIO_BUFFER_SIZE * 2;        /* mono samples in the buffer */
 	dma.fullsamples = dma.samples / dma.channels;
@@ -2066,7 +2122,7 @@ qboolean SNDDMA_Init(void)
 	dma.buffer = (byte *)audio_buffer;
 	/* Stereo pairs the engine mixes per video frame; S_Update_ paints exactly
 	 * this many into the linear buffer that audio_callback then pushes. */
-	dma.samples_per_frame = SAMPLE_RATE / framerate;
+	dma.samples_per_frame = audio_sample_rate / framerate;
 
 	/* Wire the engine's float output to our linear float buffer; s_float_output
 	 * is (re)asserted from the negotiation result so a reload picks up the
