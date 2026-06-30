@@ -412,18 +412,67 @@ static void context_destroy()
 /* Forward declaration for Key_Event (defined later in file) */
 void Key_Event(int key, int value, int time);
 
-/* Helper function for keyboard callback - calls Key_Event with current time */
-static void Sys_QueueKeyEvent(uint32_t keycode, int down)
+/* Translate a libretro RETROK_* keycode to a Quake 3 keynum. Most printable
+ * ASCII keys share their value with the Quake keynum, so they pass through; the
+ * ones that don't (arrows, backspace/delete, modifiers, console) are mapped
+ * explicitly. WASD are remapped onto the arrow movement keys so the bundled
+ * config's arrow binds drive FPS movement without needing WASD binds (this
+ * preserves the device's existing movement behaviour). Returns -1 for keys to
+ * ignore. */
+static int retrok_to_quake(unsigned keycode)
 {
-	Key_Event(keycode, down, com_frameTime);
+	switch (keycode)
+	{
+		/* WASD -> arrow movement keys (config binds arrows to forward/back and
+		 * strafe), matching the device's existing layout. */
+		case RETROK_w:         return K_UPARROW;
+		case RETROK_s:         return K_DOWNARROW;
+		case RETROK_a:         return K_LEFTARROW;
+		case RETROK_d:         return K_RIGHTARROW;
+		/* Arrow keys -> same directional codes (movement / menu navigation). */
+		case RETROK_UP:        return K_UPARROW;
+		case RETROK_DOWN:      return K_DOWNARROW;
+		case RETROK_LEFT:      return K_LEFTARROW;
+		case RETROK_RIGHT:     return K_RIGHTARROW;
+		/* Keys whose RETROK value differs from the Quake keynum. */
+		case RETROK_BACKQUOTE: return K_CONSOLE;
+		case RETROK_BACKSPACE: return K_BACKSPACE; /* 8 -> 127 */
+		case RETROK_DELETE:    return K_DEL;       /* 127 would otherwise alias backspace */
+		case RETROK_LSHIFT:
+		case RETROK_RSHIFT:    return K_SHIFT;
+		case RETROK_LCTRL:
+		case RETROK_RCTRL:     return K_CTRL;
+		case RETROK_LALT:
+		case RETROK_RALT:      return K_ALT;
+		default:
+			/* Printable ASCII (letters, digits, space, enter, escape, tab,
+			 * punctuation) shares the Quake keynum, so pass it through - this is
+			 * what makes the full keyboard work in the console and menus. Number
+			 * keys reach their "weapon N" binds the same way. Everything else
+			 * (function keys, keypad, etc.) is ignored. */
+			if (keycode < 128)
+				return (int)keycode;
+			return -1;
+	}
 }
 
 static void keyboard_cb(bool down, unsigned keycode, uint32_t character, uint16_t mod)
 {
-	// character-only events are discarded
-	if (keycode != RETROK_UNKNOWN) {
-		Sys_QueueKeyEvent((uint32_t) keycode, down ? 1 : 0);
-	}
+	int qkey;
+
+	/* Event-driven keyboard: the frontend pushes each key transition here, so
+	 * there is no per-frame keyboard polling. Gated on the keyboard device so it
+	 * matches the controller the user selected. */
+	if (quake_devices[0] != RETRO_DEVICE_KEYBOARD)
+		return;
+	if (keycode == RETROK_UNKNOWN)
+		return;
+
+	qkey = retrok_to_quake(keycode);
+	if (qkey < 0)
+		return; /* unmapped key (the engine also rejects keynum >= MAX_KEYS) */
+
+	Key_Event(qkey, down ? 1 : 0, com_frameTime);
 }
 
 static bool first_reset = true;
@@ -1401,7 +1450,7 @@ bool retro_load_game(const struct retro_game_info *info)
 	for (i=0; path_lower[i]; ++i)
 		path_lower[i] = tolower(path_lower[i]);
 	
-//	environ_cb(RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK, &cb);
+	environ_cb(RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK, &cb);
 	
 	update_variables(true);
 
@@ -2410,56 +2459,28 @@ void Sys_SetKeys(int time){
 		break;
 		case RETRO_DEVICE_KEYBOARD:
 		{
-			/* RetroKeyboard + Mouse. WASD map to the arrow movement keys the
-			 * bundled config binds (UP/DOWN = +forward/+back, LEFT/RIGHT =
-			 * +moveleft/+moveright strafe), so movement works out of the box.
-			 * Number keys 1-9 / 0 are the weapon shortcuts (config binds them to
-			 * "weapon 1".."weapon 9" / "weapon 10"). The arrow keys map to the
-			 * same directional codes as WASD (in-game movement / menu
-			 * navigation), Enter -> K_ENTER (menu confirm). Space -> K_SPACE
-			 * (+moveup = jump), Escape -> K_ESCAPE (the engine toggles the menu
-			 * specially), Tilde (backquote) -> K_CONSOLE (console toggle). Mouse
-			 * buttons -> fire / alt-fire; mouse wheel up/down -> K_MWHEELUP/DOWN,
-			 * which the config binds to weapprev/weapnext (cycle weapon). Each
-			 * entry is edge-detected so a key press and release each emit one
-			 * event. */
-			static const struct { unsigned id; unsigned device; int qkey; } kbm[] = {
-				{ RETROK_w,                    RETRO_DEVICE_KEYBOARD, K_UPARROW    },
-				{ RETROK_s,                    RETRO_DEVICE_KEYBOARD, K_DOWNARROW  },
-				{ RETROK_a,                    RETRO_DEVICE_KEYBOARD, K_LEFTARROW  },
-				{ RETROK_d,                    RETRO_DEVICE_KEYBOARD, K_RIGHTARROW },
-				{ RETROK_1,                    RETRO_DEVICE_KEYBOARD, '1'          },
-				{ RETROK_2,                    RETRO_DEVICE_KEYBOARD, '2'          },
-				{ RETROK_3,                    RETRO_DEVICE_KEYBOARD, '3'          },
-				{ RETROK_4,                    RETRO_DEVICE_KEYBOARD, '4'          },
-				{ RETROK_5,                    RETRO_DEVICE_KEYBOARD, '5'          },
-				{ RETROK_6,                    RETRO_DEVICE_KEYBOARD, '6'          },
-				{ RETROK_7,                    RETRO_DEVICE_KEYBOARD, '7'          },
-				{ RETROK_8,                    RETRO_DEVICE_KEYBOARD, '8'          },
-				{ RETROK_9,                    RETRO_DEVICE_KEYBOARD, '9'          },
-				{ RETROK_0,                    RETRO_DEVICE_KEYBOARD, '0'          },
-				{ RETROK_UP,                   RETRO_DEVICE_KEYBOARD, K_UPARROW    },
-				{ RETROK_DOWN,                 RETRO_DEVICE_KEYBOARD, K_DOWNARROW  },
-				{ RETROK_LEFT,                 RETRO_DEVICE_KEYBOARD, K_LEFTARROW  },
-				{ RETROK_RIGHT,                RETRO_DEVICE_KEYBOARD, K_RIGHTARROW },
-				{ RETROK_RETURN,               RETRO_DEVICE_KEYBOARD, K_ENTER      },
-				{ RETROK_SPACE,                RETRO_DEVICE_KEYBOARD, K_SPACE      },
-				{ RETROK_ESCAPE,               RETRO_DEVICE_KEYBOARD, K_ESCAPE     },
-				{ RETROK_BACKQUOTE,            RETRO_DEVICE_KEYBOARD, K_CONSOLE    },
-				{ RETRO_DEVICE_ID_MOUSE_LEFT,      RETRO_DEVICE_MOUSE, K_MOUSE1     },
-				{ RETRO_DEVICE_ID_MOUSE_RIGHT,     RETRO_DEVICE_MOUSE, K_MOUSE2     },
-				{ RETRO_DEVICE_ID_MOUSE_WHEELUP,   RETRO_DEVICE_MOUSE, K_MWHEELUP   },
-				{ RETRO_DEVICE_ID_MOUSE_WHEELDOWN, RETRO_DEVICE_MOUSE, K_MWHEELDOWN },
+			/* RetroKeyboard + Mouse. The keyboard is handled event-driven by
+			 * keyboard_cb (RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK); only the
+			 * mouse is polled here. Left/right buttons -> fire / alt-fire; wheel
+			 * up/down -> K_MWHEELUP/DOWN, which the config binds to
+			 * weapprev/weapnext (cycle weapon). Edge-detected so each press and
+			 * release emit one event; the wheel's momentary one-frame signal
+			 * cycles once on the down edge. */
+			static const struct { unsigned id; int qkey; } mouse_btn[] = {
+				{ RETRO_DEVICE_ID_MOUSE_LEFT,      K_MOUSE1     },
+				{ RETRO_DEVICE_ID_MOUSE_RIGHT,     K_MOUSE2     },
+				{ RETRO_DEVICE_ID_MOUSE_WHEELUP,   K_MWHEELUP   },
+				{ RETRO_DEVICE_ID_MOUSE_WHEELDOWN, K_MWHEELDOWN },
 			};
-			static int kbm_prev[sizeof(kbm) / sizeof(kbm[0])];
+			static int mouse_prev[sizeof(mouse_btn) / sizeof(mouse_btn[0])];
 			unsigned k;
-			for (k = 0; k < sizeof(kbm) / sizeof(kbm[0]); k++)
+			for (k = 0; k < sizeof(mouse_btn) / sizeof(mouse_btn[0]); k++)
 			{
-				int down = input_cb(port, kbm[k].device, 0, kbm[k].id) ? 1 : 0;
-				if (down != kbm_prev[k])
+				int down = input_cb(port, RETRO_DEVICE_MOUSE, 0, mouse_btn[k].id) ? 1 : 0;
+				if (down != mouse_prev[k])
 				{
-					Key_Event(kbm[k].qkey, down, time);
-					kbm_prev[k] = down;
+					Key_Event(mouse_btn[k].qkey, down, time);
+					mouse_prev[k] = down;
 				}
 			}
 		}
