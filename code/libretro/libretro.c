@@ -488,9 +488,12 @@ CON_Print
 ==================
 */
 void CON_Print(const char *msg) {
-#ifndef RELEASE
-    printf(msg);
-#endif
+    /* Route engine output to the libretro log so Com_Printf/Com_DPrintf and,
+     * crucially, fatal Sys_Error messages are visible in the frontend log.
+     * Previously this was #ifndef RELEASE only, so release cores swallowed all
+     * engine diagnostics -- a fatal during Com_Init looked like a silent exit. */
+    if (log_cb && msg && *msg)
+        log_cb(RETRO_LOG_INFO, "%s", msg);
 }
 
 /* glimp_gamma.c */
@@ -667,6 +670,11 @@ void Sys_Error(const char *error, ...) {
     va_start (argptr, error);
     Q_vsnprintf(string, sizeof(string), error, argptr);
     va_end (argptr);
+
+    /* Make the fatal reason visible in the frontend log instead of exiting
+     * silently. */
+    if (log_cb)
+        log_cb(RETRO_LOG_ERROR, "vitaQuakeIII fatal: %s\n", string);
 
     Sys_ErrorDialog(string);
 
