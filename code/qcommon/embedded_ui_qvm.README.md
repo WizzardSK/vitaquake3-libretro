@@ -3,13 +3,16 @@
 `embedded_ui_qvm.h` contains a baseq3 `ui.qvm` baked into the core, stored
 **zlib-compressed** to keep the binary small (~92 KB compressed vs ~302 KB
 raw). `vm.c` inflates it once at load via the engine's zlib (`VM_ArmEmbeddedUI`).
-It is the stock-format (vq3) Quake III `q3_ui` bytecode with two changes for the
+It is the stock-format (vq3) Quake III `q3_ui` bytecode with these changes for the
 libretro core:
 
 - the **"Fullscreen:"** item removed from the *System > Graphics* menu (the core
-  always renders fullscreen into the frontend's framebuffer); and
+  always renders fullscreen into the frontend's framebuffer);
 - the **"Voodoo"** entry removed from the **GL Driver** list (no 3dfx/glide path
-  exists in a modern GL core), leaving only "Default".
+  exists in a modern GL core), leaving only "Default"; and
+- the **"Sound System:"** (SDL/OpenAL) selector and the **"SDL Sound Quality:"**
+  control removed from the *System > Sound* menu (the engine has a single base
+  sound backend; OpenAL was removed from the core).
 
 At runtime the engine uses this embedded copy for the `ui` VM **unless** a loose
 `baseq3/vm/ui.qvm` is present in a real game directory on disk, in which case
