@@ -53,7 +53,6 @@ SURFACE SHADERS
 */
 
 shaderCommands_t	tess;
-static qboolean	setArraysOnce;
 
 /*
 =================

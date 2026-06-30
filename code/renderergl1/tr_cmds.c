@@ -357,8 +357,6 @@ void RE_BeginFrame( stereoFrame_t stereoFrame ) {
 	// check for errors
 	if ( !r_ignoreGLErrors->integer )
 	{
-		int	err;
-
 		R_IssuePendingRenderCommands();
 	}
 

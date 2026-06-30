@@ -187,8 +187,6 @@ static void InitOpenGL( void )
 	
 	if ( glConfig.vidWidth == 0 )
 	{
-		GLint		temp;
-		
 		GLimp_Init( qfalse );
 
 		// OpenGL driver constants
@@ -958,7 +956,6 @@ R_Init
 ===============
 */
 void R_Init( void ) {	
-	int	err;
 	int i;
 	byte *ptr;
 
