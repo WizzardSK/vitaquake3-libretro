@@ -441,21 +441,16 @@ void S_SpatializeOrigin (vec3_t origin, int master_vol, int *left_vol, int *righ
 
 	dot = -vec[1];
 
-	if (dma.channels == 1)
-	{ // no attenuation = no spatialization
-		rscale = 1.0;
-		lscale = 1.0;
+	/* Output is always stereo (dma.channels == 2), so compute stereo
+	 * separation directly; the old dma.channels == 1 mono path (no panning)
+	 * was unreachable. */
+	rscale = 0.5 * (1.0 + dot);
+	lscale = 0.5 * (1.0 - dot);
+	if ( rscale < 0 ) {
+		rscale = 0;
 	}
-	else
-	{
-		rscale = 0.5 * (1.0 + dot);
-		lscale = 0.5 * (1.0 - dot);
-		if ( rscale < 0 ) {
-			rscale = 0;
-		}
-		if ( lscale < 0 ) {
-			lscale = 0;
-		}
+	if ( lscale < 0 ) {
+		lscale = 0;
 	}
 
 	// add in distance effect
