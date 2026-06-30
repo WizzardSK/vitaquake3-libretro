@@ -64,19 +64,17 @@ static int			listener_number;
 static vec3_t		listener_origin;
 static vec3_t		listener_axis[3];
 
-int			s_soundtime;		// sample PAIRS
+int		s_soundtime;		// sample PAIRS
 int   		s_paintedtime; 		// sample PAIRS
 
 // MAX_SFX may be larger than MAX_SOUNDS because
 // of custom player sounds
 #define		MAX_SFX			4096
 sfx_t		s_knownSfx[MAX_SFX];
-int			s_numSfx = 0;
+int		s_numSfx = 0;
 
 #define		LOOP_HASH		128
 static	sfx_t		*sfxHash[LOOP_HASH];
-
-cvar_t		*s_testsound;
 
 static loopSound_t		loopSounds[MAX_GENTITIES];
 static	channel_t		*freelist = NULL;
@@ -1205,18 +1203,6 @@ void S_Base_Update( void ) {
 
 void S_GetSoundtime(void)
 {
-	if( CL_VideoRecording( ) )
-	{
-		float fps = MIN(cl_aviFrameRate->value, 1000.0f);
-		float frameDuration = MAX(dma.speed / fps, 1.0f) + clc.aviSoundFrameRemainder;
-
-		int msec = (int)frameDuration;
-		s_soundtime += msec;
-		clc.aviSoundFrameRemainder = frameDuration - msec;
-
-		return;
-	}
-
 	/* libretro frame-locked: playback position equals the monotonic paint
 	 * position. There is no separate DMA read cursor and no mix-ahead window,
 	 * so soundtime tracks paintedtime directly. Raw streams (BGM, cinematics)
@@ -1487,29 +1473,22 @@ S_Init
 */
 qboolean S_Base_Init( soundInterface_t *si ) {
 	qboolean	r;
-
-	if( !si ) {
+	if( !si )
 		return qfalse;
-	}
-
-	s_testsound = Cvar_Get ("s_testsound", "0", CVAR_CHEAT);
-
 	r = SNDDMA_Init();
 
-	if ( r ) {
-		s_soundStarted = 1;
-		s_soundMuted = 1;
-//		s_numSfx = 0;
-
-		Com_Memset(sfxHash, 0, sizeof(sfx_t *)*LOOP_HASH);
-
-		s_soundtime = 0;
-		s_paintedtime = 0;
-
-		S_Base_StopAllSounds( );
-	} else {
+	if ( !r )
 		return qfalse;
-	}
+
+	s_soundStarted = 1;
+	s_soundMuted = 1;
+
+	Com_Memset(sfxHash, 0, sizeof(sfx_t *)*LOOP_HASH);
+
+	s_soundtime = 0;
+	s_paintedtime = 0;
+
+	S_Base_StopAllSounds( );
 
 	si->Shutdown = S_Base_Shutdown;
 	si->StartSound = S_Base_StartSound;

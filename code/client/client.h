@@ -411,8 +411,6 @@ extern	cvar_t	*j_side_axis;
 extern	cvar_t	*j_up_axis;
 
 extern	cvar_t	*cl_timedemo;
-extern	cvar_t	*cl_aviFrameRate;
-extern	cvar_t	*cl_aviMotionJpeg;
 
 extern	cvar_t	*cl_activeAction;
 
@@ -626,18 +624,6 @@ void LAN_SaveServersToCache( void );
 void CL_Netchan_Transmit( netchan_t *chan, msg_t* msg);	//int length, const byte *data );
 qboolean CL_Netchan_Process( netchan_t *chan, msg_t *msg );
 
-//
-// cl_avi.c
-//
-qboolean CL_OpenAVIForWriting( const char *filename );
-void CL_TakeVideoFrame( void );
-void CL_WriteAVIVideoFrame( const byte *imageBuffer, int size );
-void CL_WriteAVIAudioFrame( const byte *pcmBuffer, int size );
-qboolean CL_CloseAVI( void );
-qboolean CL_VideoRecording( void );
-
-//
 // cl_main.c
-//
 void CL_WriteDemoMessage ( msg_t *msg, int headerBytes );
 

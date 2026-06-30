@@ -61,8 +61,6 @@ static void S_WriteLinearBlastStereoFloat (void)
 	}
 }
 
-#if	!id386                                        // if configured not to use asm
-
 void S_WriteLinearBlastStereo16 (void)
 {
 	int		i;
@@ -87,56 +85,6 @@ void S_WriteLinearBlastStereo16 (void)
 			snd_out[i+1] = val;
 	}
 }
-#elif defined(__GNUC__)
-// uses snd_mixa.s
-void S_WriteLinearBlastStereo16 (void);
-#else
-
-__declspec( naked ) void S_WriteLinearBlastStereo16 (void)
-{
-	__asm {
-
- push edi
- push ebx
- mov ecx,ds:dword ptr[snd_linear_count]
- mov ebx,ds:dword ptr[snd_p]
- mov edi,ds:dword ptr[snd_out]
-LWLBLoopTop:
- mov eax,ds:dword ptr[-8+ebx+ecx*4]
- sar eax,8
- cmp eax,07FFFh
- jg LClampHigh
- cmp eax,0FFFF8000h
- jnl LClampDone
- mov eax,0FFFF8000h
- jmp LClampDone
-LClampHigh:
- mov eax,07FFFh
-LClampDone:
- mov edx,ds:dword ptr[-4+ebx+ecx*4]
- sar edx,8
- cmp edx,07FFFh
- jg LClampHigh2
- cmp edx,0FFFF8000h
- jnl LClampDone2
- mov edx,0FFFF8000h
- jmp LClampDone2
-LClampHigh2:
- mov edx,07FFFh
-LClampDone2:
- shl edx,16
- and eax,0FFFFh
- or edx,eax
- mov ds:dword ptr[-4+edi+ecx*2],edx
- sub ecx,2
- jnz LWLBLoopTop
- pop ebx
- pop edi
- ret
-	}
-}
-
-#endif
 
 /* Base sample-pair index for the current frame's paint. The output buffers are
  * linear, one video frame long, so the destination offset is the painted time
@@ -164,14 +112,11 @@ void S_TransferStereo16 (unsigned long *pbuf, int endtime)
 
 		snd_linear_count <<= 1; // snd_linear_count *= dma.channels
 
-	// write a linear blast of samples
+		// write a linear blast of samples
 		S_WriteLinearBlastStereo16 ();
 
 		snd_p += snd_linear_count;
 		ls_paintedtime += (snd_linear_count>>1); // snd_linear_count / dma.channels
-
-		if( CL_VideoRecording( ) )
-			CL_WriteAVIAudioFrame( (byte *)snd_out, snd_linear_count << 1 ); // snd_linear_count * (dma.samplebits/8)
 	}
 }
 
@@ -212,27 +157,12 @@ void S_TransferPaintBuffer(int endtime)
 {
 	int 	count;
 	int		i;
-	unsigned long *pbuf;
-
-	pbuf = (unsigned long *)dma.buffer;
-
-
-	if ( s_testsound->integer ) {
-		// write a fixed sine wave
-		count = (endtime - s_paintedtime);
-		for (i=0 ; i<count ; i++)
-			paintbuffer[i].left = paintbuffer[i].right = sin((s_paintedtime+i)*0.1)*20000*256;
-	}
-
-
+	unsigned long *pbuf = (unsigned long *)dma.buffer;
+	// float output: linear, frame-relative
 	if (s_float_output && snd_float_buffer)
-	{	// float output: linear, frame-relative
 		S_TransferStereoFloat (snd_float_buffer, endtime);
-	}
-	else
-	{	// int16 stereo: the libretro DMA buffer is always 16-bit, 2 channels
+	else // int16 stereo: the libretro DMA buffer is always 16-bit, 2 channels
 		S_TransferStereo16 (pbuf, endtime);
-	}
 }
 
 

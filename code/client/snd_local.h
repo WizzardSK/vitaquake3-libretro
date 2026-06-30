@@ -215,8 +215,6 @@ extern cvar_t *s_musicVolume;
 extern cvar_t *s_muted;
 extern cvar_t *s_doppler;
 
-extern cvar_t *s_testsound;
-
 qboolean S_LoadSound( sfx_t *sfx );
 
 void		SND_free(sndBuffer *v);

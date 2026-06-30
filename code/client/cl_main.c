@@ -75,8 +75,6 @@ cvar_t	*cl_showSend;
 cvar_t	*cl_timedemo;
 cvar_t	*cl_timedemoLog;
 cvar_t	*cl_autoRecordDemo;
-cvar_t	*cl_aviFrameRate;
-cvar_t	*cl_aviMotionJpeg;
 cvar_t	*cl_forceavidemo;
 
 cvar_t	*cl_freelook;
@@ -1204,9 +1202,6 @@ CL_ShutdownAll
 */
 void CL_ShutdownAll(qboolean shutdownRef)
 {
-	if(CL_VideoRecording())
-		CL_CloseAVI();
-
 	if(clc.demorecording)
 		CL_StopRecord_f();
 
@@ -1465,13 +1460,6 @@ void CL_Disconnect( qboolean showMainMenu ) {
 	// not connected to voip server anymore.
 	clc.voipEnabled = qfalse;
 #endif
-
-	// Stop recording any video
-	if( CL_VideoRecording( ) ) {
-		// Finish rendering current frame
-		SCR_UpdateScreen( );
-		CL_CloseAVI( );
-	}
 
 	CL_UpdateGUID( NULL, 0 );
 
@@ -1927,11 +1915,6 @@ doesn't know what graphics to reload
 =================
 */
 void CL_Vid_Restart_f( void ) {
-
-	// Settings may have changed so stop recording now
-	if( CL_VideoRecording( ) ) {
-		CL_CloseAVI( );
-	}
 
 	if(clc.demorecording)
 		CL_StopRecord_f();
@@ -2961,20 +2944,6 @@ void CL_Frame ( int msec ) {
 		VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_MAIN );
 	}
 
-	// if recording an avi, lock to a fixed fps
-	if ( CL_VideoRecording( ) && cl_aviFrameRate->integer && msec) {
-		// save the current screen
-		if ( clc.state == CA_ACTIVE || cl_forceavidemo->integer) {
-			float fps = MIN(cl_aviFrameRate->value * com_timescale->value, 1000.0f);
-			float frameDuration = MAX(1000.0f / fps, 1.0f) + clc.aviVideoFrameRemainder;
-
-			CL_TakeVideoFrame( );
-
-			msec = (int)frameDuration;
-			clc.aviVideoFrameRemainder = frameDuration - msec;
-		}
-	}
-	
 	if( cl_autoRecordDemo->integer ) {
 		if( clc.state == CA_ACTIVE && !clc.demorecording && !clc.demoplaying ) {
 			// If not recording a demo, and we should be, start one
@@ -3271,8 +3240,6 @@ void CL_InitRef( void ) {
 	ri.CIN_PlayCinematic = CIN_PlayCinematic;
 	ri.CIN_RunCinematic = CIN_RunCinematic;
   
-	ri.CL_WriteAVIVideoFrame = CL_WriteAVIVideoFrame;
-
 	ri.IN_Init = IN_Init;
 	ri.IN_Shutdown = IN_Shutdown;
 	ri.IN_Restart = IN_Restart;
@@ -3322,75 +3289,6 @@ void CL_SetModel_f( void ) {
 
 
 //===========================================================================================
-
-
-/*
-===============
-CL_Video_f
-
-video
-video [filename]
-===============
-*/
-void CL_Video_f( void )
-{
-  char  filename[ MAX_OSPATH ];
-  int   i, last;
-
-  if( !clc.demoplaying )
-  {
-    Com_Printf( "The video command can only be used when playing back demos\n" );
-    return;
-  }
-
-  if( Cmd_Argc( ) == 2 )
-  {
-    // explicit filename
-    Com_sprintf( filename, MAX_OSPATH, "videos/%s.avi", Cmd_Argv( 1 ) );
-  }
-  else
-  {
-    // scan for a free filename
-    for( i = 0; i <= 9999; i++ )
-    {
-      int a, b, c, d;
-
-      last = i;
-
-      a = last / 1000;
-      last -= a * 1000;
-      b = last / 100;
-      last -= b * 100;
-      c = last / 10;
-      last -= c * 10;
-      d = last;
-
-      Com_sprintf( filename, MAX_OSPATH, "videos/video%d%d%d%d.avi",
-          a, b, c, d );
-
-      if( !FS_FileExists( filename ) )
-        break; // file doesn't exist
-    }
-
-    if( i > 9999 )
-    {
-      Com_Printf( S_COLOR_RED "ERROR: no free file names to create video\n" );
-      return;
-    }
-  }
-
-  CL_OpenAVIForWriting( filename );
-}
-
-/*
-===============
-CL_StopVideo_f
-===============
-*/
-void CL_StopVideo_f( void )
-{
-  CL_CloseAVI( );
-}
 
 /*
 ===============
@@ -3525,8 +3423,6 @@ void CL_Init( void ) {
 	cl_timedemo = Cvar_Get ("timedemo", "0", 0);
 	cl_timedemoLog = Cvar_Get ("cl_timedemoLog", "", CVAR_ARCHIVE);
 	cl_autoRecordDemo = Cvar_Get ("cl_autoRecordDemo", "0", CVAR_ARCHIVE);
-	cl_aviFrameRate = Cvar_Get ("cl_aviFrameRate", "25", CVAR_ARCHIVE);
-	cl_aviMotionJpeg = Cvar_Get ("cl_aviMotionJpeg", "1", CVAR_ARCHIVE);
 	cl_forceavidemo = Cvar_Get ("cl_forceavidemo", "0", 0);
 
 	rconAddress = Cvar_Get ("rconAddress", "", 0);
@@ -3683,8 +3579,6 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("fs_openedList", CL_OpenedPK3List_f );
 	Cmd_AddCommand ("fs_referencedList", CL_ReferencedPK3List_f );
 	Cmd_AddCommand ("model", CL_SetModel_f );
-	Cmd_AddCommand ("video", CL_Video_f );
-	Cmd_AddCommand ("stopvideo", CL_StopVideo_f );
 	if( !com_dedicated->integer ) {
 		Cmd_AddCommand ("sayto", CL_Sayto_f );
 		Cmd_SetCommandCompletionFunc( "sayto", CL_CompletePlayerName );
