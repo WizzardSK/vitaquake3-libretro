@@ -3052,34 +3052,13 @@ int Com_ModifyMsec( int msec ) {
 
 /*
 =================
-Com_TimeVal
-=================
-*/
-
-int Com_TimeVal(int minMsec)
-{
-	int timeVal;
-
-	timeVal = Sys_Milliseconds() - com_frameTime;
-
-	if(timeVal >= minMsec)
-		timeVal = 0;
-	else
-		timeVal = minMsec - timeVal;
-
-	return timeVal;
-}
-
-/*
-=================
 Com_Frame
 =================
 */
 void Com_Frame( void ) {
 
-	int		msec, minMsec;
-	int		timeVal, timeValSV;
-	static int	lastTime = 0, bias = 0;
+	int		msec;
+	static int	lastTime = 0;
  
 	int		timeBeforeFirstEvents;
 	int		timeBeforeServer;
@@ -3108,56 +3087,15 @@ void Com_Frame( void ) {
 		timeBeforeFirstEvents = Sys_Milliseconds ();
 	}
 
-	// Figure out how much time we have
-	if(!com_timedemo->integer)
-	{
-		if(com_dedicated->integer)
-			minMsec = SV_FrameMsec();
-		else
-		{
-			/*if(com_minimized->integer && com_maxfpsMinimized->integer > 0)
-				minMsec = 1000 / com_maxfpsMinimized->integer;
-			else if(com_unfocused->integer && com_maxfpsUnfocused->integer > 0)
-				minMsec = 1000 / com_maxfpsUnfocused->integer;
-			else if(com_maxfps->integer > 0)
-				minMsec = 1000 / com_maxfps->integer;
-			else*/
-				minMsec = 1;
-			
-			timeVal = com_frameTime - lastTime;
-			bias += timeVal - minMsec;
-			
-			if(bias > minMsec)
-				bias = minMsec;
-			
-			// Adjust minMsec if previous frame took too long to render so
-			// that framerate is stable at the requested value.
-			minMsec -= bias;
-		}
-	}
-	else
-		minMsec = 1;
+	/* libretro: retro_run drives exactly one simulation step per call and the
+	 * frontend owns frame pacing, so the engine never sleeps or spins to wait
+	 * for wall-clock time. Service queued server packets and poll the network
+	 * once, non-blocking; the frame quantum comes from the virtual clock. */
+	if(com_sv_running->integer)
+		SV_SendQueuedPackets();
 
-	do
-	{
-		if(com_sv_running->integer)
-		{
-			timeValSV = SV_SendQueuedPackets();
-			
-			timeVal = Com_TimeVal(minMsec);
+	NET_Sleep(0);
 
-			if(timeValSV < timeVal)
-				timeVal = timeValSV;
-		}
-		else
-			timeVal = Com_TimeVal(minMsec);
-		
-		if(com_busyWait->integer || timeVal < 1)
-			NET_Sleep(0);
-		else
-			NET_Sleep(timeVal - 1);
-	} while(Com_TimeVal(minMsec));
-	
 	IN_Frame();
 
 	lastTime = com_frameTime;

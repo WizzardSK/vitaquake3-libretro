@@ -142,20 +142,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "enabled"
    },
    {
-      "vitaquakeiii_deterministic",
-      "Deterministic Timing (experimental)",
-      NULL,
-      "Drive the engine clock from a fixed per-frame step instead of the host wall clock. Enable for run-ahead, netplay and deterministic record/replay. Experimental: changes game timing behaviour. Disabled = legacy free-running timing.",
-      NULL,
-      NULL,
-      {
-         { "disabled",  "Disabled" },
-         { "enabled",   "Enabled" },
-         { NULL, NULL },
-      },
-      "disabled"
-   },
-   {
       "vitaquakeiii_strict_paks",
       "Strict Pak Checking",
       NULL,

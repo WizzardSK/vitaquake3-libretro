@@ -29,12 +29,13 @@ static int16_t audio_buffer[BUFFER_SIZE];
 static bool libretro_shared_context = false;
 static bool widescreen_enabled      = false;
 
-/* Deterministic timing: when enabled, the engine clock is driven by a fixed
- * per-frame quantum (1000/framerate ms) advanced once per retro_run, instead of
- * the host wall clock (cpu_features_get_time_usec). This makes a given input
- * sequence produce identical output, which is required for run-ahead, netplay
- * and deterministic record/replay. Disabled = legacy free-running behaviour. */
-static bool     deterministic_timing = false;
+/* libretro timing model: the engine clock is driven entirely by a fixed
+ * per-frame quantum (1000/framerate ms) advanced exactly once per retro_run.
+ * There is no host wall clock, no timer, and no sleep anywhere in the frame
+ * path. retro_run executes one video frame and its audio samples; a given
+ * input sequence therefore produces identical output, which is what run-ahead,
+ * netplay and deterministic record/replay require. Every engine consumer of
+ * time funnels through Sys_Milliseconds(), which reports this virtual clock. */
 static uint64_t frame_time_us        = 0;     /* accumulated virtual time, microseconds */
 static unsigned frame_ms_remainder   = 0;     /* carry of the 1000 % framerate remainder */
 
@@ -864,17 +865,6 @@ static void update_variables(bool startup)
 			invert_y_axis = -1;
 	}
 
-	var.key = "vitaquakeiii_deterministic";
-	var.value = NULL;
-
-	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-	{
-		if (strcmp(var.value, "disabled") == 0)
-			deterministic_timing = false;
-		else
-			deterministic_timing = true;
-	}
-	
 	// We need setup sequence to be finished to change Cvar values
 	if (!startup) {
       var.key = "vitaquakeiii_overbrights";
@@ -1275,7 +1265,7 @@ bool retro_load_game(const struct retro_game_info *info)
 	if (!info)
 		return false;
 
-	/* Reset the deterministic virtual clock so each load starts from t=0. */
+	/* Reset the virtual clock so each load starts from t=0. */
 	frame_time_us      = 0;
 	frame_ms_remainder = 0;
 
@@ -1364,11 +1354,11 @@ void retro_run(void)
 	qglEnable(GL_TEXTURE_2D);
 	qglEnableClientState(GL_VERTEX_ARRAY);
 
-	/* Advance the deterministic virtual clock by exactly one frame quantum.
-	 * Using integer ms/frame with a remainder carry keeps the long-run rate at
-	 * precisely 'framerate' fps with no floating-point drift. Done before any
-	 * engine code (Com_Frame, input, audio) reads Sys_Milliseconds() this frame. */
-	if (deterministic_timing && framerate > 0) {
+	/* Advance the virtual clock by exactly one frame quantum. Using integer
+	 * ms/frame with a remainder carry keeps the long-run rate at precisely
+	 * 'framerate' fps with no floating-point drift. Done before any engine code
+	 * (Com_Frame, input, audio) reads Sys_Milliseconds() this frame. */
+	if (framerate > 0) {
 		frame_time_us += 1000000u / (unsigned)framerate;
 		frame_ms_remainder += 1000000u % (unsigned)framerate;
 		if (frame_ms_remainder >= (unsigned)framerate) {
@@ -1512,27 +1502,12 @@ Sys_Milliseconds
 */
 int curtime;
 int Sys_Milliseconds(void) {
-    static uint64_t	base;
-	uint64_t time;
-
-	/* Deterministic mode: report the virtual clock advanced once per frame in
-	 * retro_run(). Every consumer of engine time (Com_Frame msec, input event
-	 * timestamps, audio mix-ahead) funnels through here, so this single source
-	 * makes the whole simulation reproducible. */
-	if (deterministic_timing) {
-		curtime = (int)(frame_time_us / 1000);
-		return curtime;
-	}
-
-	time = cpu_features_get_time_usec() / 1000;
-
-    if (!base) {
-		base = time;
-    }
-
-    curtime = (int)(time - base);
-
-    return curtime;
+	/* The engine clock is the virtual frame clock, advanced once per retro_run.
+	 * Every consumer of engine time (Com_Frame msec, input event timestamps,
+	 * audio mix-ahead, server frame timing) funnels through here, so there is a
+	 * single, wall-clock-free source and the whole simulation is reproducible. */
+	curtime = (int)(frame_time_us / 1000);
+	return curtime;
 }
 
 /*
@@ -3612,8 +3587,9 @@ void NET_Sleep(int msec)
 	int retval;
 	SOCKET highestfd = INVALID_SOCKET;
 
-	if(msec < 0)
-		msec = 0;
+	/* libretro: never block. retro_run owns frame pacing, so this only ever
+	 * polls the sockets non-blocking, regardless of the requested msec. */
+	msec = 0;
 
 	FD_ZERO(&fdr);
 
