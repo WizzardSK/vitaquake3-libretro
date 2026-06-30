@@ -101,9 +101,7 @@ cvar_t	*r_logFile;
 
 cvar_t	*r_stencilbits;
 cvar_t	*r_depthbits;
-cvar_t	*r_colorbits;
 cvar_t	*r_primitives;
-cvar_t	*r_texturebits;
 cvar_t  *r_ext_multisample;
 
 cvar_t	*r_drawBuffer;
@@ -777,7 +775,6 @@ void GfxInfo_f( void )
 
 	ri.Printf( PRINT_ALL, "texturemode: %s\n", r_textureMode->string );
 	ri.Printf( PRINT_ALL, "picmip: %d\n", r_picmip->integer );
-	ri.Printf( PRINT_ALL, "texture bits: %d\n", r_texturebits->integer );
 	ri.Printf( PRINT_ALL, "multitexture: %s\n", enablestrings[/*qglActiveTextureARB !=*/ 0] );
 	ri.Printf( PRINT_ALL, "compiled vertex arrays: %s\n", enablestrings[/*qglLockArraysEXT !=*/ 0 ] );
 	ri.Printf( PRINT_ALL, "texenv add: %s\n", enablestrings[glConfig.textureEnvAddAvailable != 0] );
@@ -828,8 +825,6 @@ void R_Register( void )
 	r_colorMipLevels = ri.Cvar_Get ("r_colorMipLevels", "0", CVAR_LATCH );
 	ri.Cvar_CheckRange( r_picmip, 0, 16, qtrue );
 	r_detailTextures = ri.Cvar_Get( "r_detailtextures", "1", CVAR_ARCHIVE | CVAR_LATCH );
-	r_texturebits = ri.Cvar_Get( "r_texturebits", "0", CVAR_ARCHIVE | CVAR_LATCH );
-	r_colorbits = ri.Cvar_Get( "r_colorbits", "0", CVAR_ARCHIVE | CVAR_LATCH );
 	r_stencilbits = ri.Cvar_Get( "r_stencilbits", "8", CVAR_ARCHIVE | CVAR_LATCH );
 	r_depthbits = ri.Cvar_Get( "r_depthbits", "0", CVAR_ARCHIVE | CVAR_LATCH );
 	r_ext_multisample = ri.Cvar_Get( "r_ext_multisample", "0", CVAR_ARCHIVE | CVAR_LATCH );
