@@ -77,9 +77,6 @@ int			s_numSfx = 0;
 static	sfx_t		*sfxHash[LOOP_HASH];
 
 cvar_t		*s_testsound;
-cvar_t		*s_show;
-cvar_t		*s_mixahead;
-cvar_t		*s_mixPreStep;
 
 static loopSound_t		loopSounds[MAX_GENTITIES];
 static	channel_t		*freelist = NULL;
@@ -546,10 +543,6 @@ static void S_Base_StartSoundEx( vec3_t origin, int entityNum, int entchannel, s
 
 	if (sfx->inMemory == qfalse) {
 		S_memoryLoad(sfx);
-	}
-
-	if ( s_show->integer == 1 ) {
-		Com_Printf( "%i : %s\n", s_paintedtime, sfx->soundName );
 	}
 
 	time = Com_Milliseconds();
@@ -1212,22 +1205,6 @@ void S_Base_Update( void ) {
 		return;
 	}
 
-	//
-	// debugging output
-	//
-	if ( s_show->integer == 2 ) {
-		total = 0;
-		ch = s_channels;
-		for (i=0 ; i<MAX_CHANNELS; i++, ch++) {
-			if (ch->thesfx && (ch->leftvol || ch->rightvol) ) {
-				Com_Printf ("%d %d %s\n", ch->leftvol, ch->rightvol, ch->thesfx->soundName);
-				total++;
-			}
-		}
-		
-		Com_Printf ("----(%i)---- painted: %i\n", total, s_paintedtime);
-	}
-
 	// add raw data from streamed samples
 	S_UpdateBackgroundTrack();
 
@@ -1510,9 +1487,6 @@ qboolean S_Base_Init( soundInterface_t *si ) {
 		return qfalse;
 	}
 
-	s_mixahead = Cvar_Get ("s_mixahead", "0.2", CVAR_ARCHIVE);
-	s_mixPreStep = Cvar_Get ("s_mixPreStep", "0.05", CVAR_ARCHIVE);
-	s_show = Cvar_Get ("s_show", "0", CVAR_CHEAT);
 	s_testsound = Cvar_Get ("s_testsound", "0", CVAR_CHEAT);
 
 	r = SNDDMA_Init();

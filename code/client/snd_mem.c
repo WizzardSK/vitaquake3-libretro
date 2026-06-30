@@ -74,15 +74,10 @@ redo:
 	return v;
 }
 
-void SND_setup(void) {
+void SND_setup(void)
+{
 	sndBuffer *p, *q;
-	cvar_t	*cv;
-	int scs;
-
-	cv = Cvar_Get( "com_soundMegs", DEF_COMSOUNDMEGS, CVAR_LATCH | CVAR_ARCHIVE );
-
-	scs = (cv->integer*1536);
-
+	int scs = (8 * 1536); /* soundMegs hardcoded here to 8 */
 	if (buffer == NULL) buffer = malloc(scs*sizeof(sndBuffer) );
 	// allocate the stack based hunk allocator
 	if (sfxScratchBuffer == NULL) sfxScratchBuffer = malloc(SND_CHUNK_SIZE * sizeof(short) * 4);	//Hunk_Alloc(SND_CHUNK_SIZE * sizeof(short) * 4);
