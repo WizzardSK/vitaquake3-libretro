@@ -1238,18 +1238,6 @@ void CL_KeyDownEvent( int key, unsigned time )
 	if( keys[key].repeats == 1 )
 		anykeydown++;
 
-	if( keys[K_ALT].down && key == K_ENTER )
-	{
-		// don't repeat fullscreen toggle when keys are held down
-		if ( keys[K_ENTER].repeats > 1 ) {
-			return;
-		}
-
-		Cvar_SetValue( "r_fullscreen",
-			!Cvar_VariableIntegerValue( "r_fullscreen" ) );
-		return;
-	}
-
 	// console key is hardcoded, so the user can never unbind it
 	if( key == K_CONSOLE || ( keys[K_SHIFT].down && key == K_ESCAPE ) )
 	{
