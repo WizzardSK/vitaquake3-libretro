@@ -2414,14 +2414,15 @@ void Sys_SetKeys(int time){
 			 * bundled config binds (UP/DOWN = +forward/+back, LEFT/RIGHT =
 			 * +moveleft/+moveright strafe), so movement works out of the box.
 			 * Number keys 1-9 / 0 are the weapon shortcuts (config binds them to
-			 * "weapon 1".."weapon 9" / "weapon 10"). Space -> K_SPACE (+moveup =
-			 * jump), Escape -> K_ESCAPE (the engine toggles the menu specially),
-			 * Tilde (backquote) -> K_CONSOLE (console toggle). Mouse buttons ->
-			 * fire / alt-fire; mouse wheel up/down -> K_MWHEELUP/DOWN, which the
-			 * config binds to weapprev/weapnext (cycle weapon). Each entry is edge-detected so a key press and
-			 * release each emit one event. Every RETROK_* here equals its Quake
-			 * keynum, so the mapping is an identity for the digit/space/escape
-			 * keys. */
+			 * "weapon 1".."weapon 9" / "weapon 10"). The arrow keys map to the
+			 * same directional codes as WASD (in-game movement / menu
+			 * navigation), Enter -> K_ENTER (menu confirm). Space -> K_SPACE
+			 * (+moveup = jump), Escape -> K_ESCAPE (the engine toggles the menu
+			 * specially), Tilde (backquote) -> K_CONSOLE (console toggle). Mouse
+			 * buttons -> fire / alt-fire; mouse wheel up/down -> K_MWHEELUP/DOWN,
+			 * which the config binds to weapprev/weapnext (cycle weapon). Each
+			 * entry is edge-detected so a key press and release each emit one
+			 * event. */
 			static const struct { unsigned id; unsigned device; int qkey; } kbm[] = {
 				{ RETROK_w,                    RETRO_DEVICE_KEYBOARD, K_UPARROW    },
 				{ RETROK_s,                    RETRO_DEVICE_KEYBOARD, K_DOWNARROW  },
@@ -2437,6 +2438,11 @@ void Sys_SetKeys(int time){
 				{ RETROK_8,                    RETRO_DEVICE_KEYBOARD, '8'          },
 				{ RETROK_9,                    RETRO_DEVICE_KEYBOARD, '9'          },
 				{ RETROK_0,                    RETRO_DEVICE_KEYBOARD, '0'          },
+				{ RETROK_UP,                   RETRO_DEVICE_KEYBOARD, K_UPARROW    },
+				{ RETROK_DOWN,                 RETRO_DEVICE_KEYBOARD, K_DOWNARROW  },
+				{ RETROK_LEFT,                 RETRO_DEVICE_KEYBOARD, K_LEFTARROW  },
+				{ RETROK_RIGHT,                RETRO_DEVICE_KEYBOARD, K_RIGHTARROW },
+				{ RETROK_RETURN,               RETRO_DEVICE_KEYBOARD, K_ENTER      },
 				{ RETROK_SPACE,                RETRO_DEVICE_KEYBOARD, K_SPACE      },
 				{ RETROK_ESCAPE,               RETRO_DEVICE_KEYBOARD, K_ESCAPE     },
 				{ RETROK_BACKQUOTE,            RETRO_DEVICE_KEYBOARD, K_CONSOLE    },
