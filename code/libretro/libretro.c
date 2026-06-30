@@ -678,16 +678,6 @@ void Sys_Error(const char *error, ...) {
 }
 
 /*
-============
-Sys_FileTime
-returns -1 if not present
-============
-*/
-int Sys_FileTime(char *path) {
-    return -1;
-}
-
-/*
 =================
 Sys_UnloadDll
 =================
@@ -745,14 +735,6 @@ void Sys_ParseArgs(int argc, char **argv) {
 #ifndef DEFAULT_BASEDIR
 #	define DEFAULT_BASEDIR Sys_BinaryPath()
 #endif
-
-/*
-=================
-Sys_SigHandler
-=================
-*/
-void Sys_SigHandler(int signal) {
-}
 
 static void extract_directory(char *buf, const char *path, size_t size)
 {
@@ -1937,59 +1919,39 @@ void Sys_SetEnv(const char *name, const char *value) {
 }
 
 /*
-==============
-Sys_PID
-==============
-*/
-int Sys_PID(void) {
-    return 0;
-}
-
-/*
-==============
-Sys_PIDIsRunning
-==============
-*/
-qboolean Sys_PIDIsRunning(int pid) {
-    return true;
-}
-
-/*
 =================
 Sys_DllExtension
 
 Check if filename should be allowed to be loaded as a DLL.
 =================
 */
-qboolean Sys_DllExtension(const char *name) {
+qboolean Sys_DllExtension(const char *name)
+{
     const char *p;
     char c = 0;
 
-    if (COM_CompareExtension(name, DLL_EXT)) {
+    if (COM_CompareExtension(name, DLL_EXT))
         return qtrue;
-    }
 
     // Check for format of filename.so.1.2.3
     p = strstr(name, DLL_EXT ".");
 
-    if (p) {
+    if (p)
+    {
         p += strlen(DLL_EXT);
 
         // Check if .so is only followed for periods and numbers.
-        while (*p) {
+        while (*p)
+	{
             c = *p;
-
-            if (!isdigit(c) && c != '.') {
+            if (!isdigit(c) && c != '.')
                 return qfalse;
-            }
-
             p++;
         }
 
         // Don't allow filename to end in a period. file.so., file.so.0., etc
-        if (c != '.') {
+        if (c != '.')
             return qtrue;
-        }
     }
 
     return qfalse;
