@@ -1393,6 +1393,7 @@ void retro_run(void)
 
 	if (first_boot) {
 		char commandLine[MAX_STRING_CHARS] = {0};
+		struct retro_variable strict_var;
 		
 		// Starting input
 		IN_Init(NULL);
@@ -1404,15 +1405,29 @@ void retro_run(void)
 	
 		CON_Init();
 		if (is_missionpack) {
-			sprintf(commandLine, "+set fs_game missionpack");
+			snprintf(commandLine, sizeof(commandLine), "+set fs_game missionpack");
 			printf("Launching Quake III: Team Arena...\n");
 		} else if (is_urt) {
-			sprintf(commandLine, "+set fs_game q3ut4");
+			snprintf(commandLine, sizeof(commandLine), "+set fs_game q3ut4");
 			printf("Launching Urban Terror...\n");
 		} else if (is_rally) {
-			sprintf(commandLine, "+set fs_game baseq3r");
+			snprintf(commandLine, sizeof(commandLine), "+set fs_game baseq3r");
 			printf("Launching Q3 Rally...\n");
 		}
+
+		/* The pak-integrity gate (FS_CheckPak0) runs inside Com_Init below, so
+		 * fs_strictPaks must be set via the startup command line ('+set'), which
+		 * Com_Init parses before FS_Startup -- not via update_variables(), which
+		 * runs too late. When disabled, a partial/CD install (missing the 1.32
+		 * point-release paks) boots in a degraded mode instead of exiting. */
+		strict_var.key   = "vitaquakeiii_strict_paks";
+		strict_var.value = NULL;
+		if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &strict_var) &&
+		    strict_var.value && !strcmp(strict_var.value, "disabled"))
+		{
+			Q_strcat(commandLine, sizeof(commandLine), " +set fs_strictPaks 0");
+		}
+
 		Com_Init(commandLine);
 		NET_Init();
 		update_variables(false);

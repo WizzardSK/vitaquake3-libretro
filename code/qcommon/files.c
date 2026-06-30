@@ -246,6 +246,7 @@ typedef struct searchpath_s {
 static	char		fs_gamedir[MAX_OSPATH];	// this will be a single file name with no separators
 static	cvar_t		*fs_debug;
 static	cvar_t		*fs_homepath;
+static	cvar_t		*fs_strictPaks;	/* 0 = allow partial/CD installs (degraded) */
 
 #ifdef __APPLE__
 // Also search the .app bundle for .pk3 files
@@ -3320,6 +3321,7 @@ static void FS_Startup( const char *gameName )
 	fs_packFiles = 0;
 
 	fs_debug = Cvar_Get( "fs_debug", "0", 0 );
+	fs_strictPaks = Cvar_Get( "fs_strictPaks", "1", CVAR_INIT );
 	fs_basepath = Cvar_Get ("fs_basepath", Sys_DefaultInstallPath(), CVAR_INIT|CVAR_PROTECTED );
 	fs_basegame = Cvar_Get ("fs_basegame", "", CVAR_INIT );
 	homePath = Sys_DefaultHomePath();
@@ -3615,7 +3617,27 @@ static void FS_CheckPak0( void )
 					"the correct place and that every file "
 					"in the \"%s\" directory is present and readable", BASEGAME));
 
-		Com_Error(ERR_FATAL, "%s", errorText);
+		/* Override: when fs_strictPaks is disabled AND pak0 is present, treat a
+		 * missing point-release (pak1..pak8) as a warning and continue, instead
+		 * of a hard exit. This lets partial / CD installs (e.g. 1.31 with
+		 * pak0..pak6) boot in a degraded mode. pak0 itself is non-negotiable --
+		 * without it there is no default.cfg and the engine cannot run -- so a
+		 * missing pak0 stays fatal regardless of the override. */
+		if (fs_strictPaks && !fs_strictPaks->integer && (foundPak & 0x01) == 0x01)
+		{
+			Com_Printf("\n\n"
+					"**************************************************\n"
+					"WARNING: %s\n"
+					"fs_strictPaks is disabled: continuing anyway with the\n"
+					"paks that are present. Some content may be missing or\n"
+					"incorrect. This is an unsupported, degraded mode.\n"
+					"**************************************************\n\n\n",
+					errorText);
+		}
+		else
+		{
+			Com_Error(ERR_FATAL, "%s", errorText);
+		}
 	}
 
 	if(!com_standalone->integer && foundTA && (foundTA & 0x0f) != 0x0f)

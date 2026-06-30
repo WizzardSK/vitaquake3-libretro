@@ -126,6 +126,17 @@ struct retro_core_option_definition option_defs_us[] = {
       "disabled"
    },
    {
+      "vitaquakeiii_strict_paks",
+      "Strict Pak Checking",
+      "Enabled (default): require a complete, checksum-verified id pak set (pak0-pak8 for the 1.32 point release). Disabled: allow partial or CD installs (e.g. only pak0-pak6) to boot anyway, in an unsupported degraded mode where some content may be missing or incorrect. pak0.pk3 is always required.",
+      {
+         { "enabled",   "Enabled" },
+         { "disabled",  "Disabled" },
+         { NULL, NULL },
+      },
+      "enabled"
+   },
+   {
       "vitaquakeiii_fps",
       "Show FPS",
       "Shows framerate on screen.",
