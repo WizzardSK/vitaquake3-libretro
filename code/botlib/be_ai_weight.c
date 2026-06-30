@@ -448,23 +448,23 @@ weightconfig_t *ReadWeightConfig(char *filename)
 // Returns:					-
 // Changes Globals:		-
 //===========================================================================
-qboolean WriteFuzzyWeight(FILE *fp, fuzzyseperator_t *fs)
+qboolean WriteFuzzyWeight(Q_FILE *fp, fuzzyseperator_t *fs)
 {
 	if (fs->type == WT_BALANCE)
 	{
-		if (fprintf(fp, " return balance(") < 0) return qfalse;
+		if (Q_fprintf(fp, " return balance(") < 0) return qfalse;
 		if (!WriteFloat(fp, fs->weight)) return qfalse;
-		if (fprintf(fp, ",") < 0) return qfalse;
+		if (Q_fprintf(fp, ",") < 0) return qfalse;
 		if (!WriteFloat(fp, fs->minweight)) return qfalse;
-		if (fprintf(fp, ",") < 0) return qfalse;
+		if (Q_fprintf(fp, ",") < 0) return qfalse;
 		if (!WriteFloat(fp, fs->maxweight)) return qfalse;
-		if (fprintf(fp, ");\n") < 0) return qfalse;
+		if (Q_fprintf(fp, ");\n") < 0) return qfalse;
 	} //end if
 	else
 	{
-		if (fprintf(fp, " return ") < 0) return qfalse;
+		if (Q_fprintf(fp, " return ") < 0) return qfalse;
 		if (!WriteFloat(fp, fs->weight)) return qfalse;
-		if (fprintf(fp, ";\n") < 0) return qfalse;
+		if (Q_fprintf(fp, ";\n") < 0) return qfalse;
 	} //end else
 	return qtrue;
 } //end of the function WriteFuzzyWeight
@@ -474,38 +474,38 @@ qboolean WriteFuzzyWeight(FILE *fp, fuzzyseperator_t *fs)
 // Returns:					-
 // Changes Globals:		-
 //===========================================================================
-qboolean WriteFuzzySeperators_r(FILE *fp, fuzzyseperator_t *fs, int indent)
+qboolean WriteFuzzySeperators_r(Q_FILE *fp, fuzzyseperator_t *fs, int indent)
 {
 	if (!WriteIndent(fp, indent)) return qfalse;
-	if (fprintf(fp, "switch(%d)\n", fs->index) < 0) return qfalse;
+	if (Q_fprintf(fp, "switch(%d)\n", fs->index) < 0) return qfalse;
 	if (!WriteIndent(fp, indent)) return qfalse;
-	if (fprintf(fp, "{\n") < 0) return qfalse;
+	if (Q_fprintf(fp, "{\n") < 0) return qfalse;
 	indent++;
 	do
 	{
 		if (!WriteIndent(fp, indent)) return qfalse;
 		if (fs->next)
 		{
-			if (fprintf(fp, "case %d:", fs->value) < 0) return qfalse;
+			if (Q_fprintf(fp, "case %d:", fs->value) < 0) return qfalse;
 		} //end if
 		else
 		{
-			if (fprintf(fp, "default:") < 0) return qfalse;
+			if (Q_fprintf(fp, "default:") < 0) return qfalse;
 		} //end else
 		if (fs->child)
 		{
-			if (fprintf(fp, "\n") < 0) return qfalse;
+			if (Q_fprintf(fp, "\n") < 0) return qfalse;
 			if (!WriteIndent(fp, indent)) return qfalse;
-			if (fprintf(fp, "{\n") < 0) return qfalse;
+			if (Q_fprintf(fp, "{\n") < 0) return qfalse;
 			if (!WriteFuzzySeperators_r(fp, fs->child, indent + 1)) return qfalse;
 			if (!WriteIndent(fp, indent)) return qfalse;
 			if (fs->next)
 			{
-				if (fprintf(fp, "} //end case\n") < 0) return qfalse;
+				if (Q_fprintf(fp, "} //end case\n") < 0) return qfalse;
 			} //end if
 			else
 			{
-				if (fprintf(fp, "} //end default\n") < 0) return qfalse;
+				if (Q_fprintf(fp, "} //end default\n") < 0) return qfalse;
 			} //end else
 		} //end if
 		else
@@ -516,7 +516,7 @@ qboolean WriteFuzzySeperators_r(FILE *fp, fuzzyseperator_t *fs, int indent)
 	} while(fs);
 	indent--;
 	if (!WriteIndent(fp, indent)) return qfalse;
-	if (fprintf(fp, "} //end switch\n") < 0) return qfalse;
+	if (Q_fprintf(fp, "} //end switch\n") < 0) return qfalse;
 	return qtrue;
 } //end of the function WriteItemFuzzyWeights_r
 //===========================================================================
@@ -528,17 +528,17 @@ qboolean WriteFuzzySeperators_r(FILE *fp, fuzzyseperator_t *fs, int indent)
 qboolean WriteWeightConfig(char *filename, weightconfig_t *config)
 {
 	int i;
-	FILE *fp;
+	Q_FILE *fp;
 	weight_t *ifw;
 
-	fp = fopen(filename, "wb");
+	fp = Q_fopen(filename, "wb");
 	if (!fp) return qfalse;
 
 	for (i = 0; i < config->numweights; i++)
 	{
 		ifw = &config->weights[i];
-		if (fprintf(fp, "\nweight \"%s\"\n", ifw->name) < 0) return qfalse;
-		if (fprintf(fp, "{\n") < 0) return qfalse;
+		if (Q_fprintf(fp, "\nweight \"%s\"\n", ifw->name) < 0) return qfalse;
+		if (Q_fprintf(fp, "{\n") < 0) return qfalse;
 		if (ifw->firstseperator->index > 0)
 		{
 			if (!WriteFuzzySeperators_r(fp, ifw->firstseperator, 1)) return qfalse;
@@ -548,9 +548,9 @@ qboolean WriteWeightConfig(char *filename, weightconfig_t *config)
 			if (!WriteIndent(fp, 1)) return qfalse;
 			if (!WriteFuzzyWeight(fp, ifw->firstseperator)) return qfalse;
 		} //end else
-		if (fprintf(fp, "} //end weight\n") < 0) return qfalse;
+		if (Q_fprintf(fp, "} //end weight\n") < 0) return qfalse;
 	} //end for
-	fclose(fp);
+	Q_fclose(fp);
 	return qtrue;
 } //end of the function WriteWeightConfig
 #endif

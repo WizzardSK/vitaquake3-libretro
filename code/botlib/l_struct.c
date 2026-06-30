@@ -327,11 +327,11 @@ int ReadStructure(source_t *source, structdef_t *def, char *structure)
 // Returns:					-
 // Changes Globals:		-
 //===========================================================================
-int WriteIndent(FILE *fp, int indent)
+int WriteIndent(Q_FILE *fp, int indent)
 {
 	while(indent-- > 0)
 	{
-		if (fprintf(fp, "\t") < 0) return qfalse;
+		if (Q_fprintf(fp, "\t") < 0) return qfalse;
 	} //end while
 	return qtrue;
 } //end of the function WriteIndent
@@ -341,7 +341,7 @@ int WriteIndent(FILE *fp, int indent)
 // Returns:					-
 // Changes Globals:		-
 //===========================================================================
-int WriteFloat(FILE *fp, float value)
+int WriteFloat(Q_FILE *fp, float value)
 {
 	char buf[128];
 	int l;
@@ -360,7 +360,7 @@ int WriteFloat(FILE *fp, float value)
 		buf[l] = 0;
 	} //end while
 	//write the float to file
-	if (fprintf(fp, "%s", buf) < 0) return 0;
+	if (Q_fprintf(fp, "%s", buf) < 0) return 0;
 	return 1;
 } //end of the function WriteFloat
 //===========================================================================
@@ -369,26 +369,26 @@ int WriteFloat(FILE *fp, float value)
 // Returns:					-
 // Changes Globals:		-
 //===========================================================================
-int WriteStructWithIndent(FILE *fp, structdef_t *def, char *structure, int indent)
+int WriteStructWithIndent(Q_FILE *fp, structdef_t *def, char *structure, int indent)
 {
 	int i, num;
 	void *p;
 	fielddef_t *fd;
 
 	if (!WriteIndent(fp, indent)) return qfalse;
-	if (fprintf(fp, "{\r\n") < 0) return qfalse;
+	if (Q_fprintf(fp, "{\r\n") < 0) return qfalse;
 
 	indent++;
 	for (i = 0; def->fields[i].name; i++)
 	{
 		fd = &def->fields[i];
 		if (!WriteIndent(fp, indent)) return qfalse;
-		if (fprintf(fp, "%s\t", fd->name) < 0) return qfalse;
+		if (Q_fprintf(fp, "%s\t", fd->name) < 0) return qfalse;
 		p = (void *)(structure + fd->offset);
 		if (fd->type & FT_ARRAY)
 		{
 			num = fd->maxarray;
-			if (fprintf(fp, "{") < 0) return qfalse;
+			if (Q_fprintf(fp, "{") < 0) return qfalse;
 		} //end if
 		else
 		{
@@ -400,13 +400,13 @@ int WriteStructWithIndent(FILE *fp, structdef_t *def, char *structure, int inden
 			{
 				case FT_CHAR:
 				{
-					if (fprintf(fp, "%d", *(char *) p) < 0) return qfalse;
+					if (Q_fprintf(fp, "%d", *(char *) p) < 0) return qfalse;
 					p = (char *) p + sizeof(char);
 					break;
 				} //end case
 				case FT_INT:
 				{
-					if (fprintf(fp, "%d", *(int *) p) < 0) return qfalse;
+					if (Q_fprintf(fp, "%d", *(int *) p) < 0) return qfalse;
 					p = (char *) p + sizeof(int);
 					break;
 				} //end case
@@ -418,7 +418,7 @@ int WriteStructWithIndent(FILE *fp, structdef_t *def, char *structure, int inden
 				} //end case
 				case FT_STRING:
 				{
-					if (fprintf(fp, "\"%s\"", (char *) p) < 0) return qfalse;
+					if (Q_fprintf(fp, "\"%s\"", (char *) p) < 0) return qfalse;
 					p = (char *) p + MAX_STRINGFIELD;
 					break;
 				} //end case
@@ -433,20 +433,20 @@ int WriteStructWithIndent(FILE *fp, structdef_t *def, char *structure, int inden
 			{
 				if (num > 0)
 				{
-					if (fprintf(fp, ",") < 0) return qfalse;
+					if (Q_fprintf(fp, ",") < 0) return qfalse;
 				} //end if
 				else
 				{
-					if (fprintf(fp, "}") < 0) return qfalse;
+					if (Q_fprintf(fp, "}") < 0) return qfalse;
 				} //end else
 			} //end if
 		} //end while
-		if (fprintf(fp, "\r\n") < 0) return qfalse;
+		if (Q_fprintf(fp, "\r\n") < 0) return qfalse;
 	} //end for
 	indent--;
 
 	if (!WriteIndent(fp, indent)) return qfalse;
-	if (fprintf(fp, "}\r\n") < 0) return qfalse;
+	if (Q_fprintf(fp, "}\r\n") < 0) return qfalse;
 	return qtrue;
 } //end of the function WriteStructWithIndent
 //===========================================================================
@@ -455,7 +455,7 @@ int WriteStructWithIndent(FILE *fp, structdef_t *def, char *structure, int inden
 // Returns:					-
 // Changes Globals:		-
 //===========================================================================
-int WriteStructure(FILE *fp, structdef_t *def, char *structure)
+int WriteStructure(Q_FILE *fp, structdef_t *def, char *structure)
 {
 	return WriteStructWithIndent(fp, def, structure, 0);
 } //end of the function WriteStructure

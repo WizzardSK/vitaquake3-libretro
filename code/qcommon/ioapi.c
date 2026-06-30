@@ -17,6 +17,7 @@
 #endif
 
 #include "ioapi.h"
+#include "q_vfs.h"   /* route pk3/zip I/O through the libretro VFS (filestream_*) */
 
 
 
@@ -75,7 +76,7 @@ voidpf ZCALLBACK fopen_file_func (opaque, filename, mode)
    const char* filename;
    int mode;
 {
-    FILE* file = NULL;
+    Q_FILE* file = NULL;
     const char* mode_fopen = NULL;
     if ((mode & ZLIB_FILEFUNC_MODE_READWRITEFILTER)==ZLIB_FILEFUNC_MODE_READ)
         mode_fopen = "rb";
@@ -87,7 +88,7 @@ voidpf ZCALLBACK fopen_file_func (opaque, filename, mode)
         mode_fopen = "wb";
 
     if ((filename!=NULL) && (mode_fopen != NULL))
-        file = fopen(filename, mode_fopen);
+        file = Q_fopen(filename, mode_fopen);
     return file;
 }
 
@@ -99,7 +100,7 @@ uLong ZCALLBACK fread_file_func (opaque, stream, buf, size)
    uLong size;
 {
     uLong ret;
-    ret = (uLong)fread(buf, 1, (size_t)size, (FILE *)stream);
+    ret = (uLong)Q_fread(buf, 1, (size_t)size, (Q_FILE *)stream);
     return ret;
 }
 
@@ -111,7 +112,7 @@ uLong ZCALLBACK fwrite_file_func (opaque, stream, buf, size)
    uLong size;
 {
     uLong ret;
-    ret = (uLong)fwrite(buf, 1, (size_t)size, (FILE *)stream);
+    ret = (uLong)Q_fwrite(buf, 1, (size_t)size, (Q_FILE *)stream);
     return ret;
 }
 
@@ -120,7 +121,7 @@ long ZCALLBACK ftell_file_func (opaque, stream)
    voidpf stream;
 {
     long ret;
-    ret = ftell((FILE *)stream);
+    ret = Q_ftell((Q_FILE *)stream);
     return ret;
 }
 
@@ -146,7 +147,7 @@ long ZCALLBACK fseek_file_func (opaque, stream, offset, origin)
     default: return -1;
     }
     ret = 0;
-    fseek((FILE *)stream, offset, fseek_origin);
+    Q_fseek((Q_FILE *)stream, offset, fseek_origin);
     return ret;
 }
 
@@ -155,7 +156,7 @@ int ZCALLBACK fclose_file_func (opaque, stream)
    voidpf stream;
 {
     int ret;
-    ret = fclose((FILE *)stream);
+    ret = Q_fclose((Q_FILE *)stream);
     return ret;
 }
 
@@ -164,7 +165,7 @@ int ZCALLBACK ferror_file_func (opaque, stream)
    voidpf stream;
 {
     int ret;
-    ret = ferror((FILE *)stream);
+    ret = Q_ferror((Q_FILE *)stream);
     return ret;
 }
 

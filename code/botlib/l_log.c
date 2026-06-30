@@ -45,7 +45,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 typedef struct logfile_s
 {
 	char filename[MAX_LOGFILENAMESIZE];
-	FILE *fp;
+	Q_FILE *fp;
 	int numwrites;
 } logfile_t;
 
@@ -72,7 +72,7 @@ void Log_Open(char *filename)
 		return;
 	} //end if
 	ospath = FS_BuildOSPath(Cvar_VariableString("fs_homepath"), Cvar_VariableString("fs_game"), filename);
-	logfile.fp = fopen(ospath, "wb");
+	logfile.fp = Q_fopen(ospath, "wb");
 	if (!logfile.fp)
 	{
 		botimport.Print(PRT_ERROR, "can't open the log file %s\n", filename);
@@ -90,7 +90,7 @@ void Log_Open(char *filename)
 void Log_Close(void)
 {
 	if (!logfile.fp) return;
-	if (fclose(logfile.fp))
+	if (Q_fclose(logfile.fp))
 	{
 		botimport.Print(PRT_ERROR, "can't close log file %s\n", logfile.filename);
 		return;
@@ -120,10 +120,10 @@ void QDECL Log_Write(char *fmt, ...)
 
 	if (!logfile.fp) return;
 	va_start(ap, fmt);
-	vfprintf(logfile.fp, fmt, ap);
+	Q_vfprintf(logfile.fp, fmt, ap);
 	va_end(ap);
-	//fprintf(logfile.fp, "\r\n");
-	fflush(logfile.fp);
+	//Q_fprintf(logfile.fp, "\r\n");
+	Q_fflush(logfile.fp);
 } //end of the function Log_Write
 //===========================================================================
 //
@@ -136,7 +136,7 @@ void QDECL Log_WriteTimeStamped(char *fmt, ...)
 	va_list ap;
 
 	if (!logfile.fp) return;
-	fprintf(logfile.fp, "%d   %02d:%02d:%02d:%02d   ",
+	Q_fprintf(logfile.fp, "%d   %02d:%02d:%02d:%02d   ",
 					logfile.numwrites,
 					(int) (botlibglobals.time / 60 / 60),
 					(int) (botlibglobals.time / 60),
@@ -144,11 +144,11 @@ void QDECL Log_WriteTimeStamped(char *fmt, ...)
 					(int) ((int) (botlibglobals.time * 100)) -
 							((int) botlibglobals.time) * 100);
 	va_start(ap, fmt);
-	vfprintf(logfile.fp, fmt, ap);
+	Q_vfprintf(logfile.fp, fmt, ap);
 	va_end(ap);
-	fprintf(logfile.fp, "\r\n");
+	Q_fprintf(logfile.fp, "\r\n");
 	logfile.numwrites++;
-	fflush(logfile.fp);
+	Q_fflush(logfile.fp);
 } //end of the function Log_Write
 //===========================================================================
 //
@@ -156,7 +156,7 @@ void QDECL Log_WriteTimeStamped(char *fmt, ...)
 // Returns:					-
 // Changes Globals:		-
 //===========================================================================
-FILE *Log_FilePointer(void)
+Q_FILE *Log_FilePointer(void)
 {
 	return logfile.fp;
 } //end of the function Log_FilePointer
@@ -168,6 +168,6 @@ FILE *Log_FilePointer(void)
 //===========================================================================
 void Log_Flush(void)
 {
-	if (logfile.fp) fflush(logfile.fp);
+	if (logfile.fp) Q_fflush(logfile.fp);
 } //end of the function Log_Flush
 

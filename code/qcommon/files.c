@@ -31,6 +31,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "q_shared.h"
 #include "qcommon.h"
+#include "q_vfs.h"
 #include "unzip.h"
 
 /*
@@ -265,7 +266,7 @@ static	int			fs_packFiles = 0;		// total number of files in packs
 static int fs_checksumFeed;
 
 typedef union qfile_gus {
-	FILE*		o;
+	Q_FILE*		o;
 	unzFile		z;
 } qfile_gut;
 
@@ -308,7 +309,7 @@ char lastValidFsBaseGame[MAX_OSPATH];
 char lastValidGame[MAX_OSPATH];
 
 #ifdef FS_MISSING
-FILE*		missingFiles = NULL;
+Q_FILE*		missingFiles = NULL;
 #endif
 
 /* C99 defines __func__ */
@@ -401,7 +402,7 @@ static fileHandle_t	FS_HandleForFile(void) {
 	return 0;
 }
 
-static FILE	*FS_FileForHandle( fileHandle_t f ) {
+static Q_FILE	*FS_FileForHandle( fileHandle_t f ) {
 	if ( f < 1 || f >= MAX_FILE_HANDLES ) {
 		Com_Error( ERR_DROP, "FS_FileForHandle: out of range" );
 	}
@@ -416,10 +417,9 @@ static FILE	*FS_FileForHandle( fileHandle_t f ) {
 }
 
 void	FS_ForceFlush( fileHandle_t f ) {
-	FILE *file;
-
-	file = FS_FileForHandle(f);
-	setvbuf( file, NULL, _IONBF, 0 );
+	/* VFS has no unbuffered-stream control equivalent to setvbuf(_IONBF);
+	 * filestream writes are flushed explicitly via Q_fflush where needed. */
+	(void)f;
 }
 
 /*
@@ -428,15 +428,15 @@ FS_fplength
 ================
 */
 
-long FS_fplength(FILE *h)
+long FS_fplength(Q_FILE *h)
 {
 	long		pos;
 	long		end;
 
-	pos = ftell(h);
-	fseek(h, 0, SEEK_END);
-	end = ftell(h);
-	fseek(h, pos, SEEK_SET);
+	pos = Q_ftell(h);
+	Q_fseek(h, 0, SEEK_END);
+	end = Q_ftell(h);
+	Q_fseek(h, pos, SEEK_SET);
 
 	return end;
 }
@@ -452,7 +452,7 @@ size of the file.
 */
 long FS_filelength(fileHandle_t f)
 {
-	FILE	*h;
+	Q_FILE	*h;
 
 	h = FS_FileForHandle(f);
 	
@@ -584,7 +584,7 @@ FS_Remove
 void FS_Remove( const char *osPath ) {
 	FS_CheckFilenameIsMutable( osPath, __func__ );
 
-	remove( osPath );
+	filestream_delete( osPath );
 }
 
 /*
@@ -596,7 +596,7 @@ FS_HomeRemove
 void FS_HomeRemove( const char *homePath ) {
 	FS_CheckFilenameIsMutable( homePath, __func__ );
 
-	remove( FS_BuildOSPath( fs_homepath->string,
+	filestream_delete( FS_BuildOSPath( fs_homepath->string,
 			fs_gamedir, homePath ) );
 }
 
@@ -609,13 +609,13 @@ Tests if path and file exists
 */
 qboolean FS_FileInPathExists(const char *testpath)
 {
-	FILE *filep;
+	Q_FILE *filep;
 
 	filep = Sys_FOpen(testpath, "rb");
 	
 	if(filep)
 	{
-		fclose(filep);
+		Q_fclose(filep);
 		return qtrue;
 	}
 	
@@ -825,7 +825,7 @@ void FS_SV_Rename( const char *from, const char *to, qboolean safe ) {
 		FS_CheckFilenameIsMutable( to_ospath, __func__ );
 	}
 
-	rename(from_ospath, to_ospath);
+	filestream_rename(from_ospath, to_ospath);
 }
 
 
@@ -855,7 +855,7 @@ void FS_Rename( const char *from, const char *to ) {
 
 	FS_CheckFilenameIsMutable( to_ospath, __func__ );
 
-	rename(from_ospath, to_ospath);
+	filestream_rename(from_ospath, to_ospath);
 }
 
 /*
@@ -884,7 +884,7 @@ void FS_FCloseFile( fileHandle_t f ) {
 
 	// we didn't find it as a pak, so close it as a unique file
 	if (fsh[f].handleFiles.file.o) {
-		fclose (fsh[f].handleFiles.file.o);
+		Q_fclose (fsh[f].handleFiles.file.o);
 	}
 	Com_Memset( &fsh[f], 0, sizeof( fsh[f] ) );
 }
@@ -982,7 +982,7 @@ FS_FCreateOpenPipeFile
 */
 fileHandle_t FS_FCreateOpenPipeFile( const char *filename ) {
 	char	    		*ospath;
-	FILE					*fifo;
+	Q_FILE				*fifo;
 	fileHandle_t	f;
 
 	if ( !fs_searchpaths ) {
@@ -1131,7 +1131,7 @@ long FS_FOpenFileReadDir(const char *filename, searchpath_t *search, fileHandle_
 	fileInPack_t	*pakFile;
 	directory_t	*dir;
 	char		*netpath;
-	FILE		*filep;
+	Q_FILE		*filep;
 	int			len;
 
 	if(filename == NULL)
@@ -1210,7 +1210,7 @@ long FS_FOpenFileReadDir(const char *filename, searchpath_t *search, fileHandle_
 			if(filep)
 			{
 				len = FS_fplength(filep);
-				fclose(filep);
+				Q_fclose(filep);
 
 				if(len)
 					return len;
@@ -1408,7 +1408,8 @@ long FS_FOpenFileRead(const char *filename, fileHandle_t *file, qboolean uniqueF
 	
 #ifdef FS_MISSING
 	if(missingFiles)
-		fprintf(missingFiles, "%s\n", filename);
+		Q_fwrite(filename, 1, strlen(filename), missingFiles);
+		Q_fwrite("\n", 1, 1, missingFiles);
 #endif
 
 	if(file)
@@ -1551,7 +1552,7 @@ int FS_Read( void *buffer, int len, fileHandle_t f ) {
 		tries = 0;
 		while (remaining) {
 			block = remaining;
-			read = fread (buf, 1, block, fsh[f].handleFiles.file.o);
+			read = Q_fread (buf, 1, block, fsh[f].handleFiles.file.o);
 			if (read == 0) {
 				// we might have been trying to read from a CD, which
 				// sometimes returns a 0 read on windows
@@ -1587,7 +1588,7 @@ int FS_Write( const void *buffer, int len, fileHandle_t h ) {
 	int		written;
 	byte	*buf;
 	int		tries;
-	FILE	*f;
+	Q_FILE	*f;
 
 	if ( !fs_searchpaths ) {
 		Com_Error( ERR_FATAL, "Filesystem call made without initialization" );
@@ -1604,7 +1605,7 @@ int FS_Write( const void *buffer, int len, fileHandle_t h ) {
 	tries = 0;
 	while (remaining) {
 		block = remaining;
-		written = fwrite (buf, 1, block, f);
+		written = Q_fwrite (buf, 1, block, f);
 		if (written == 0) {
 			if (!tries) {
 				tries = 1;
@@ -1623,7 +1624,7 @@ int FS_Write( const void *buffer, int len, fileHandle_t h ) {
 		buf += written;
 	}
 	if ( fsh[h].handleSync ) {
-		fflush( f );
+		Q_fflush( f );
 	}
 	return len;
 }
@@ -1715,7 +1716,7 @@ int FS_Seek( fileHandle_t f, long offset, int origin ) {
 				return -1;
 		}
 	} else {
-		FILE *file;
+		Q_FILE *file;
 		file = FS_FileForHandle(f);
 		switch( origin ) {
 		case FS_SEEK_CUR:
@@ -1732,7 +1733,7 @@ int FS_Seek( fileHandle_t f, long offset, int origin ) {
 			break;
 		}
 
-		return fseek( file, offset, _origin );
+		return Q_fseek( file, offset, _origin );
 	}
 }
 
@@ -2491,7 +2492,7 @@ void FS_GetModDescription( const char *modDir, char *description, int descriptio
 	fileHandle_t	descHandle;
 	char			descPath[MAX_QPATH];
 	int				nDescLen;
-	FILE			*file;
+	Q_FILE			*file;
 
 	Com_sprintf( descPath, sizeof ( descPath ), "%s%cdescription.txt", modDir, PATH_SEP );
 	nDescLen = FS_SV_FOpenFileRead( descPath, &descHandle );
@@ -2499,7 +2500,7 @@ void FS_GetModDescription( const char *modDir, char *description, int descriptio
 	if ( nDescLen > 0 ) {
 		file = FS_FileForHandle(descHandle);
 		Com_Memset( description, 0, descriptionLen );
-		nDescLen = fread(description, 1, descriptionLen, file);
+		nDescLen = Q_fread(description, 1, descriptionLen, file);
 		if (nDescLen >= 0) {
 			description[nDescLen] = '\0';
 		}
@@ -3257,7 +3258,7 @@ void FS_Shutdown( qboolean closemfp ) {
 
 #ifdef FS_MISSING
 	if (closemfp) {
-		fclose(missingFiles);
+		Q_fclose(missingFiles);
 	}
 #endif
 }
@@ -4152,13 +4153,13 @@ int		FS_FTell( fileHandle_t f ) {
 	if (fsh[f].zipFile == qtrue) {
 		pos = unztell(fsh[f].handleFiles.file.z);
 	} else {
-		pos = ftell(fsh[f].handleFiles.file.o);
+		pos = Q_ftell(fsh[f].handleFiles.file.o);
 	}
 	return pos;
 }
 
 void	FS_Flush( fileHandle_t f ) {
-	fflush(fsh[f].handleFiles.file.o);
+	Q_fflush(fsh[f].handleFiles.file.o);
 }
 
 void	FS_FilenameCompletion( const char *dir, const char *ext,

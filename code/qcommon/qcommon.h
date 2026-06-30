@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define _QCOMMON_H_
 
 #include "../qcommon/cm_public.h"
+#include "../qcommon/q_vfs.h"   /* Q_FILE / filestream-backed I/O (libretro VFS) */
 
 //Ignore __attribute__ on non-gcc platforms
 #ifndef __GNUC__
@@ -1113,9 +1114,9 @@ qboolean	Sys_StringToAdr( const char *s, netadr_t *a, netadrtype_t family );
 qboolean	Sys_IsLANAddress (netadr_t adr);
 void		Sys_ShowIP(void);
 
-FILE	*Sys_FOpen( const char *ospath, const char *mode );
+Q_FILE	*Sys_FOpen( const char *ospath, const char *mode );
 qboolean Sys_Mkdir( const char *path );
-FILE	*Sys_Mkfifo( const char *ospath );
+Q_FILE	*Sys_Mkfifo( const char *ospath );
 char	*Sys_Cwd( void );
 void	Sys_SetDefaultInstallPath(const char *path);
 char	*Sys_DefaultInstallPath(void);

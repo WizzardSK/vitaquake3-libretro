@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *****************************************************************************/
 
+#include "../qcommon/q_vfs.h"   /* Q_FILE */
 
 #define MAX_STRINGFIELD				80
 //field types
@@ -66,10 +67,10 @@ typedef struct structdef_s
 //read a structure from a script
 int ReadStructure(source_t *source, structdef_t *def, char *structure);
 //write a structure to a file
-int WriteStructure(FILE *fp, structdef_t *def, char *structure);
+int WriteStructure(Q_FILE *fp, structdef_t *def, char *structure);
 //writes indents
-int WriteIndent(FILE *fp, int indent);
+int WriteIndent(Q_FILE *fp, int indent);
 //writes a float without traling zeros
-int WriteFloat(FILE *fp, float value);
+int WriteFloat(Q_FILE *fp, float value);
 
 

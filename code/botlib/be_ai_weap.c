@@ -172,7 +172,7 @@ bot_weaponstate_t *BotWeaponStateFromHandle(int handle)
 #ifdef DEBUG_AI_WEAP
 void DumpWeaponConfig(weaponconfig_t *wc)
 {
-	FILE *fp;
+	Q_FILE *fp;
 	int i;
 
 	fp = Log_FileStruct();
