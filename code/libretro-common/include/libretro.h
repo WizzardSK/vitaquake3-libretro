@@ -1248,6 +1248,47 @@ enum retro_mod
                                             * default when calling SET_VARIABLES/SET_CORE_OPTIONS.
                                             */
 
+#define RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2 67
+                                           /* const struct retro_core_options_v2 * --
+                                            * Allows an implementation to signal the environment
+                                            * which variables it might want to check for later using
+                                            * GET_VARIABLE.
+                                            * This allows the frontend to present these variables to
+                                            * a user dynamically.
+                                            * This should be called the first time as early as
+                                            * possible (ideally in retro_set_environment).
+                                            * Afterwards it may be called again for the core to communicate
+                                            * updated options to the frontend, but the number of core
+                                            * options must not change from the number in the initial call.
+                                            * If RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION returns version >= 2,
+                                            * this callback is guaranteed to succeed and the frontend
+                                            * supports core option categories. If version < 2, this
+                                            * callback will return false and SET_CORE_OPTIONS_INTL or
+                                            * SET_VARIABLES must be used as a fallback.
+                                            */
+
+#define RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL 68
+                                           /* const struct retro_core_options_v2_intl * --
+                                            * Allows an implementation to signal the environment
+                                            * which variables it might want to check for later using
+                                            * GET_VARIABLE.
+                                            * This is fundamentally the same as
+                                            * RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2, with the addition of
+                                            * localisation support. The description of the
+                                            * RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2 callback should be
+                                            * consulted for further details.
+                                            */
+
+#define RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK 69
+                                           /* const struct retro_core_options_update_display_callback * --
+                                            * Allows a frontend to signal that a core must update
+                                            * the visibility of any dynamically hidden core options,
+                                            * and enables the frontend to detect visibility changes.
+                                            * Used by the frontend to update the menu display status
+                                            * of core options without requiring a call to GET_VARIABLE.
+                                            * This must be called in retro_set_environment().
+                                            */
+
 /* VFS functionality */
 
 /* File paths:
@@ -2549,6 +2590,123 @@ struct retro_core_options_intl
     * - Implementation for current frontend language
     * - May be NULL */
    struct retro_core_option_definition *local;
+};
+
+struct retro_core_option_v2_category
+{
+   /* Variable uniquely identifying the
+    * option category. Valid key characters
+    * are [a-z, A-Z, 0-9, _, -] */
+   const char *key;
+
+   /* Human-readable category description
+    * > Used as category menu label when
+    *   frontend has core option category
+    *   support */
+   const char *desc;
+
+   /* Human-readable category information
+    * > Used as category menu sublabel when
+    *   frontend has core option category
+    *   support
+    * > Optional (may be NULL or an empty
+    *   string) */
+   const char *info;
+};
+
+struct retro_core_option_v2_definition
+{
+   /* Variable to query in RETRO_ENVIRONMENT_GET_VARIABLE.
+    * Valid key characters are [a-z, A-Z, 0-9, _, -] */
+   const char *key;
+
+   /* Human-readable core option description
+    * > Used as menu label when frontend does
+    *   not have core option category support
+    *   e.g. "Video > Aspect Ratio" */
+   const char *desc;
+
+   /* Human-readable core option description
+    * > Used as menu label when frontend has
+    *   core option category support
+    *   e.g. "Aspect Ratio", where associated
+    *   category label is "Video"
+    * > If empty or NULL, the string specified by
+    *   desc will be used as the menu label
+    * > Will be ignored (and may be set to NULL)
+    *   if category_key is empty or NULL */
+   const char *desc_categorized;
+
+   /* Human-readable core option information
+    * > Used as menu sublabel */
+   const char *info;
+
+   /* Human-readable core option information
+    * > Used as menu sublabel when frontend
+    *   has core option category support
+    *   (e.g. may be required when info text
+    *   references an option by name/desc,
+    *   and the desc/desc_categorized text
+    *   for that option differ)
+    * > If empty or NULL, the string specified by
+    *   info will be used as the menu sublabel
+    * > Will be ignored (and may be set to NULL)
+    *   if category_key is empty or NULL */
+   const char *info_categorized;
+
+   /* Variable specifying category (e.g. "video",
+    * "audio") that will be assigned to the option
+    * if frontend has core option category support.
+    * > Categorized options will be displayed in a
+    *   subsection/submenu of the frontend core
+    *   option interface
+    * > Specified string must match one of the
+    *   retro_core_option_v2_category::key values
+    *   in the associated retro_core_option_v2_category
+    *   array; If no match is found, specified string
+    *   will be considered as NULL
+    * > If specified string is empty or NULL, option will
+    *   have no category and will be shown at the top
+    *   level of the frontend core option interface */
+   const char *category_key;
+
+   /* Array of retro_core_option_value structs, terminated by NULL */
+   struct retro_core_option_value values[RETRO_NUM_CORE_OPTION_VALUES_MAX];
+
+   /* Default core option value. Must match one of the
+    * values in the retro_core_option_value array,
+    * otherwise will be ignored */
+   const char *default_value;
+};
+
+struct retro_core_options_v2
+{
+   /* Array of retro_core_option_v2_category structs,
+    * terminated by NULL
+    * > If NULL, all entries in definitions array
+    *   will have no category and will be shown at
+    *   the top level of the frontend core option
+    *   interface
+    * > Will be ignored if frontend does not have
+    *   core option category support */
+   struct retro_core_option_v2_category *categories;
+
+   /* Array of retro_core_option_v2_definition structs,
+    * terminated by NULL */
+   struct retro_core_option_v2_definition *definitions;
+};
+
+struct retro_core_options_v2_intl
+{
+   /* Pointer to a retro_core_options_v2 struct
+    * > US English implementation
+    * > Must point to a valid struct */
+   struct retro_core_options_v2 *us;
+
+   /* Pointer to a retro_core_options_v2 struct
+    * - Implementation for current frontend language
+    * - May be NULL */
+   struct retro_core_options_v2 *local;
 };
 
 struct retro_game_info

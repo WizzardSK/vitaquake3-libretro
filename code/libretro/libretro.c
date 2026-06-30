@@ -889,17 +889,6 @@ static void update_variables(bool startup)
 	
 	// We need setup sequence to be finished to change Cvar values
 	if (!startup) {
-		var.key = "vitaquakeiii_fps";
-		var.value = NULL;
-
-		if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-		{
-			if (strcmp(var.value, "disabled") == 0)
-				Cvar_SetValue("cg_drawFPS", 0);
-			else
-				Cvar_SetValue("cg_drawFPS", 1);
-		}
-
       var.key = "vitaquakeiii_overbrights";
 		var.value = NULL;
 
@@ -1056,7 +1045,10 @@ void retro_set_environment(retro_environment_t cb)
 
    environ_cb = cb;
 
-   libretro_set_core_options(environ_cb);
+   {
+      bool categories_supported = false;
+      libretro_set_core_options(environ_cb, &categories_supported);
+   }
    cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
 
    /* Obtain the frontend VFS interface and hand it to libretro-common's
