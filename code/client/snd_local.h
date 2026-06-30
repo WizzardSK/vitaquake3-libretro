@@ -68,7 +68,6 @@ typedef struct {
 	int			fullsamples;			// samples with all channels in buffer (samples divided by channels)
 	int			submission_chunk;		// don't mix less than this #
 	int			samplebits;
-	int			isfloat;
 	int			speed;
 	byte		*buffer;
 	int			samples_per_frame;		// stereo sample-pairs mixed per video frame (libretro frame-locked)

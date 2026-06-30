@@ -210,11 +210,7 @@ S_TransferPaintBuffer
 */
 void S_TransferPaintBuffer(int endtime)
 {
-	int 	out_idx;
 	int 	count;
-	int 	*p;
-	int 	step;
-	int		val;
 	int		i;
 	unsigned long *pbuf;
 
@@ -233,83 +229,9 @@ void S_TransferPaintBuffer(int endtime)
 	{	// float output: linear, frame-relative
 		S_TransferStereoFloat (snd_float_buffer, endtime);
 	}
-	else if (dma.samplebits == 16 && dma.channels == 2)
-	{	// optimized case
-		S_TransferStereo16 (pbuf, endtime);
-	}
 	else
-	{	// general case
-		p = (int *) paintbuffer;
-		count = (endtime - s_paintedtime) * dma.channels;
-		out_idx = (s_paintedtime * dma.channels) % dma.samples;
-		step = 3 - MIN(dma.channels, 2);
-
-		if ((dma.isfloat) && (dma.samplebits == 32))
-		{
-			float *out = (float *) pbuf;
-			for (i=0 ; i<count ; i++)
-			{
-				if ((i % dma.channels) >= 2)
-				{
-					val = 0;
-				}
-				else
-				{
-					val = *p >> 8;
-					p+= step;
-				}
-				if (val > 0x7fff)
-					val = 0x7fff;
-				else if (val < -32767)  /* clamp to one less than max to make division max out at -1.0f. */
-					val = -32767;
-				out[out_idx] = ((float) val) / 32767.0f;
-				out_idx = (out_idx + 1) % dma.samples;
-			}
-		}
-		else if (dma.samplebits == 16)
-		{
-			short *out = (short *) pbuf;
-			for (i=0 ; i<count ; i++)
-			{
-				if ((i % dma.channels) >= 2)
-				{
-					val = 0;
-				}
-				else
-				{
-					val = *p >> 8;
-					p+= step;
-				}
-				if (val > 0x7fff)
-					val = 0x7fff;
-				else if (val < -32768)
-					val = -32768;
-				out[out_idx] = val;
-				out_idx = (out_idx + 1) % dma.samples;
-			}
-		}
-		else if (dma.samplebits == 8)
-		{
-			unsigned char *out = (unsigned char *) pbuf;
-			for (i=0 ; i<count ; i++)
-			{
-				if ((i % dma.channels) >= 2)
-				{
-					val = 0;
-				}
-				else
-				{
-					val = *p >> 8;
-					p+= step;
-				}
-				if (val > 0x7fff)
-					val = 0x7fff;
-				else if (val < -32768)
-					val = -32768;
-				out[out_idx] = (val>>8) + 128;
-				out_idx = (out_idx + 1) % dma.samples;
-			}
-		}
+	{	// int16 stereo: the libretro DMA buffer is always 16-bit, 2 channels
+		S_TransferStereo16 (pbuf, endtime);
 	}
 }
 
