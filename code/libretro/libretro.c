@@ -2417,7 +2417,8 @@ void Sys_SetKeys(int time){
 			 * "weapon 1".."weapon 9" / "weapon 10"). Space -> K_SPACE (+moveup =
 			 * jump), Escape -> K_ESCAPE (the engine toggles the menu specially),
 			 * Tilde (backquote) -> K_CONSOLE (console toggle). Mouse buttons ->
-			 * fire / alt-fire. Each entry is edge-detected so a key press and
+			 * fire / alt-fire; mouse wheel up/down -> K_MWHEELUP/DOWN, which the
+			 * config binds to weapprev/weapnext (cycle weapon). Each entry is edge-detected so a key press and
 			 * release each emit one event. Every RETROK_* here equals its Quake
 			 * keynum, so the mapping is an identity for the digit/space/escape
 			 * keys. */
@@ -2439,8 +2440,10 @@ void Sys_SetKeys(int time){
 				{ RETROK_SPACE,                RETRO_DEVICE_KEYBOARD, K_SPACE      },
 				{ RETROK_ESCAPE,               RETRO_DEVICE_KEYBOARD, K_ESCAPE     },
 				{ RETROK_BACKQUOTE,            RETRO_DEVICE_KEYBOARD, K_CONSOLE    },
-				{ RETRO_DEVICE_ID_MOUSE_LEFT,  RETRO_DEVICE_MOUSE,    K_MOUSE1     },
-				{ RETRO_DEVICE_ID_MOUSE_RIGHT, RETRO_DEVICE_MOUSE,    K_MOUSE2     },
+				{ RETRO_DEVICE_ID_MOUSE_LEFT,      RETRO_DEVICE_MOUSE, K_MOUSE1     },
+				{ RETRO_DEVICE_ID_MOUSE_RIGHT,     RETRO_DEVICE_MOUSE, K_MOUSE2     },
+				{ RETRO_DEVICE_ID_MOUSE_WHEELUP,   RETRO_DEVICE_MOUSE, K_MWHEELUP   },
+				{ RETRO_DEVICE_ID_MOUSE_WHEELDOWN, RETRO_DEVICE_MOUSE, K_MWHEELDOWN },
 			};
 			static int kbm_prev[sizeof(kbm) / sizeof(kbm[0])];
 			unsigned k;
