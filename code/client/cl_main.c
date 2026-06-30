@@ -4644,7 +4644,13 @@ CL_CDKeyValidate
 qboolean CL_CDKeyValidate( const char *key, const char *checksum ) {
 	if (is_standalone)
 		return qtrue;
-	
+
+	/* With strict pak checking disabled the install is treated as partial/CD/
+	 * unauthenticated, so the retail CD-key requirement does not apply: report
+	 * the key as valid and let the menus proceed without prompting for one. */
+	if (!FS_StrictPaks())
+		return qtrue;
+
 	char	ch;
 	byte	sum;
 	char	chs[3];

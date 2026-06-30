@@ -334,6 +334,19 @@ qboolean FS_Initialized( void ) {
 
 /*
 =================
+FS_StrictPaks
+
+Returns whether strict (checksum-verified, complete id pak set) checking is in
+effect. When it is off, the install is explicitly treated as partial/CD/
+unauthenticated, which also disables the retail CD-key requirement.
+=================
+*/
+qboolean FS_StrictPaks( void ) {
+	return (fs_strictPaks && fs_strictPaks->integer) ? qtrue : qfalse;
+}
+
+/*
+=================
 FS_PakIsPure
 =================
 */

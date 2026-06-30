@@ -605,6 +605,7 @@ issues.
 #endif
 
 qboolean FS_Initialized( void );
+qboolean FS_StrictPaks( void );
 
 void	FS_InitFilesystem ( void );
 void	FS_Shutdown( qboolean closemfp );
