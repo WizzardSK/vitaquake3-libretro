@@ -85,7 +85,6 @@ extern float     displayAspect;
 // cvars
 //
 extern cvar_t *r_stencilbits;			// number of desired stencil bits
-extern cvar_t *r_depthbits;			// number of desired depth bits
 extern cvar_t *r_ext_multisample;
 										// 0 = use framebuffer depth
 										// 16 = use 16-bit textures
