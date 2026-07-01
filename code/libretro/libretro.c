@@ -3674,7 +3674,9 @@ void NET_Shutdown( void ) {
 	}
 	
 	NET_Config( qfalse );
-	network_deinit();
+	/* network_deinit() was removed from libretro-common's net_compat; the
+	 * updated network_init() is idempotent and self-managing (no matching
+	 * teardown), so there is nothing to call here. */
 }
 
 /*
