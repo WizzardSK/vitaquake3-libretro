@@ -402,14 +402,25 @@ static void ProjectDlightTexture_scalar( void ) {
 		qglEnableClientState( GL_TEXTURE_COORD_ARRAY );
 		qglEnableClientState( GL_COLOR_ARRAY );
 
+		float *vertices = gVertexBuffer;
 		float *texcoord = gTexCoordBuffer;
 		uint8_t *colorbuf = gColorBuffer;
 		for (i = 0 ; i < numIndexes ; i++) {
+			/* Flatten the position too. vglDrawObjects draws the hit vertices
+			 * sequentially (the global index array is identity), so xyz must be
+			 * de-indexed by hitIndexes to line up with the texcoord/color arrays
+			 * built here. Without this the dlight reused whatever position buffer
+			 * the previous surface pass left behind - ordered by tess.indexes,
+			 * not hitIndexes - so the light texture and colors were pasted onto
+			 * the wrong vertices. */
+			memcpy(gVertexBuffer, tess.xyz[hitIndexes[i]], sizeof(vec3_t));
+			gVertexBuffer += 3;
 			memcpy(gTexCoordBuffer, texCoordsArray[hitIndexes[i]], sizeof(vec2_t));
 			gTexCoordBuffer += 2;
 			memcpy(gColorBuffer, colorArray[hitIndexes[i]], sizeof(uint32_t));
 			gColorBuffer += 4;
 		}
+		vglVertexPointerMapped(vertices);
 		vglColorPointerMapped(GL_UNSIGNED_BYTE, colorbuf);
 		vglTexCoordPointerMapped(texcoord);
 
