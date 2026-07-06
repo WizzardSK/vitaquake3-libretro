@@ -198,7 +198,6 @@ extern float *snd_float_buffer;
 retro_environment_t environ_cb;
 static retro_input_poll_t poll_cb;
 static retro_input_state_t input_cb;
-static struct retro_rumble_interface rumble;
 static bool libretro_supports_bitmasks = false;
 
 static void audio_callback(void);
@@ -1145,17 +1144,10 @@ void retro_set_environment(retro_environment_t cb)
    }
 }
 
-void retro_reset(void)
-{
-}
-
-void retro_set_rumble_strong(void)
-{
-}
-
-void retro_unset_rumble_strong(void)
-{
-}
+/* TODO/FIXME */
+void retro_reset(void) { }
+void retro_set_rumble_strong(void) { }
+void retro_unset_rumble_strong(void) { }
 
 void retro_set_audio_sample(retro_audio_sample_t cb)
 {
@@ -2026,14 +2018,10 @@ Display an error message
 ==============
 */
 void Sys_ErrorDialog(const char *error) {
-    char buffer[1024];
-    unsigned int size;
-    int f = -1;
     const char *homepath = Cvar_VariableString("fs_homepath");
     const char *gamedir = Cvar_VariableString("fs_game");
     const char *fileName = "crashlog.txt";
     char *dirpath = FS_BuildOSPath(homepath, gamedir, "");
-    char *ospath = FS_BuildOSPath(homepath, gamedir, fileName);
 
     Sys_Print(va("%s\n", error));
 
@@ -3491,7 +3479,6 @@ void NET_OpenIP( void ) {
 	int		i;
 	int		err;
 	int		port;
-	int		port6;
 
 	port = net_port->integer;
 
