@@ -100,11 +100,12 @@ cvar_t  *con_autochat;
 
 #if idx64
 	int (*Q_VMftol)(void);
-#elif id386
-	long (QDECL *Q_ftol)(float f);
-	int (QDECL *Q_VMftol)(void);
-	void (QDECL *Q_SnapVector)(vec3_t vec);
 #endif
+/* The id386 counterparts of these are gone: q_shared.h makes Q_ftol an alias
+ * for lrintf and Q_SnapVector a macro, so declaring pointers by those names
+ * on 32-bit x86 turns into "lrintf redeclared as different kind of symbol".
+ * Nothing reads them either - Com_DetectSSE(), the only thing that ever
+ * assigned them, is commented out below. */
 
 // com_speeds times
 int		time_game;
