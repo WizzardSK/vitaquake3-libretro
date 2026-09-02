@@ -1,0 +1,24 @@
+name: i686-preflight
+on: [push, workflow_dispatch]
+jobs:
+  linux-i686:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib g++-multilib libgl1-mesa-dev:i386
+      - run: |
+          make platform=unix CC="gcc -m32" CXX="g++ -m32" -j$(nproc) 2>&1 | tail -30
+          ls -la *.so
+          file *.so
+  windows-i686:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-i686-posix
+      - run: |
+          make platform=win CC=i686-w64-mingw32-gcc-posix CXX=i686-w64-mingw32-g++-posix AR=i686-w64-mingw32-ar -j$(nproc) 2>&1 | tail -30
+          ls -la *.dll
+          file *.dll
