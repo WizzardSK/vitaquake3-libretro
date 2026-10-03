@@ -147,6 +147,16 @@ static qboolean GLimp_GetProcAddresses( void )
 		QGL_3_0_PROCS;
 	}
 
+	// The renderer only loads the framebuffer functions where it uses its own
+	// framebuffers (desktop OpenGL 3, tr_extensions.c), and on OpenGL ES draws
+	// straight into the window. In a libretro core the window is the
+	// frontend's framebuffer, which has to be bound, and these two are core in
+	// OpenGL ES 2 and 3.
+	if ( QGLES_VERSION_ATLEAST( 2, 0 ) ) {
+		GLE(void, BindFramebuffer, GLenum target, GLuint framebuffer)
+		GLE(void, BindRenderbuffer, GLenum target, GLuint renderbuffer)
+	}
+
 #undef GLE
 
 	return success;
@@ -194,6 +204,15 @@ static void GLimp_InitExtensions( void )
 	} else {
 		ri.Printf( PRINT_ALL, "...GL_EXT_texture_compression_s3tc not found\n" );
 	}
+}
+
+// Called from retro_run before each frame (see there). Nothing to bind with
+// before the renderer has loaded its functions.
+void GL_BindNullFramebuffers( void );
+void GLimp_BindDefaultFramebuffer( void )
+{
+	if ( qglBindFramebuffer && qglBindRenderbuffer )
+		GL_BindNullFramebuffers();
 }
 
 void GLimp_Init( qboolean fixedFunction )

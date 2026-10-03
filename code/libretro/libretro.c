@@ -1607,7 +1607,18 @@ bool first_boot = true;
 
 void retro_run(void)
 {
-#ifndef RENDERER_GL2
+#ifdef RENDERER_GL2
+	/* Draw into the frontend's framebuffer. The renderer binds it itself when
+	 * it presents from its own framebuffers, but without those - OpenGL ES
+	 * here - it draws into whatever is bound, which in the core's shared
+	 * context is that context's own default framebuffer, shown nowhere: the
+	 * picture was black. Binding it through the renderer keeps the renderer's
+	 * idea of what is bound true. */
+	{
+		extern void GLimp_BindDefaultFramebuffer(void);
+		GLimp_BindDefaultFramebuffer();
+	}
+#else
    if (!libretro_shared_context)
       glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
 	qglBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
