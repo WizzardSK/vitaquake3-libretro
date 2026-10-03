@@ -211,7 +211,7 @@ CFLAGS += -std=gnu99
 else
 CFLAGS += -std=c99
 endif
-CFLAGS     += $(INCFLAGS)
+CFLAGS     += $(INCFLAGS) $(COREDEFINES)
 CXXFLAGS   += $(INCFLAGS)
 
 all: $(TARGET)
