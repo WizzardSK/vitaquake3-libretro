@@ -1,0 +1,18 @@
+name: android preflight
+on:
+  workflow_dispatch:
+  push:
+    branches: [gles-preflight]
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: ndk-build
+        run: |
+          cd jni
+          $ANDROID_NDK_LATEST_HOME/ndk-build -j4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vitaquake3-android
+          path: libs/*/libretro.so
