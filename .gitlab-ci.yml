@@ -46,6 +46,8 @@ include:
     file: '/libnx-static.yml'
   - project: 'libretro-infrastructure/ci-templates'
     file: '/android-jni.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/webos-make.yml'
 
 # Stages for building
 stages:
@@ -126,4 +128,15 @@ android-x86_64:
 android-x86:
   extends:
     - .libretro-android-jni-x86
+    - .core-defs
+
+# webOS (LG TV), with the OpenGL ES renderer (platform=webos in the Makefile)
+libretro-build-webos-armv7a:
+  extends:
+    - .libretro-webos-armv7a-make-platform-webos
+    - .core-defs
+
+libretro-build-webos-aarch64:
+  extends:
+    - .libretro-webos-aarch64-make-platform-webos
     - .core-defs
